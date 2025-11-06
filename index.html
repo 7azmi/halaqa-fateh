@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="description" content="تطبيق إدارة حلقة الفتح">
+    <title>حلقة الفتح</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="app-header">
+            <h1>حلقة الفتح</h1>
+            <button id="menuBtn" class="menu-btn" aria-label="القائمة">☰</button>
+        </header>
+
+        <!-- Navigation Menu -->
+        <nav id="sideMenu" class="side-menu">
+            <button class="close-btn" id="closeMenuBtn">✕</button>
+            <ul>
+                <li><a href="#" data-view="daily-entry">الإدخال اليومي</a></li>
+                <li><a href="#" data-view="students">الطلاب</a></li>
+                <li><a href="#" data-view="teachers">الأساتذة</a></li>
+                <li><a href="#" data-view="import">استيراد البيانات</a></li>
+                <li><a href="#" data-view="export">تصدير البيانات</a></li>
+                <li><a href="#" data-view="settings">الإعدادات</a></li>
+            </ul>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main id="mainContent" class="main-content">
+            <!-- Daily Entry View -->
+            <div id="dailyEntryView" class="view active">
+                <div class="view-header">
+                    <h2>الإدخال اليومي</h2>
+                    <div class="date-selector">
+                        <input type="date" id="entryDate" class="date-input">
+                    </div>
+                </div>
+                
+                <div class="filter-section">
+                    <select id="teacherFilter" class="filter-select">
+                        <option value="">جميع الأساتذة</option>
+                    </select>
+                </div>
+
+                <div id="studentsGrid" class="students-grid">
+                    <!-- Students will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Students Management View -->
+            <div id="studentsView" class="view">
+                <div class="view-header">
+                    <h2>إدارة الطلاب</h2>
+                    <button id="addStudentBtn" class="btn btn-primary">+ إضافة طالب</button>
+                </div>
+                
+                <div class="search-box">
+                    <input type="text" id="studentSearch" placeholder="بحث عن طالب..." class="search-input">
+                </div>
+
+                <div id="studentsList" class="list-container">
+                    <!-- Students list will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Teachers Management View -->
+            <div id="teachersView" class="view">
+                <div class="view-header">
+                    <h2>إدارة الأساتذة</h2>
+                    <button id="addTeacherBtn" class="btn btn-primary">+ إضافة أستاذ</button>
+                </div>
+
+                <div id="teachersList" class="list-container">
+                    <!-- Teachers list will be loaded here -->
+                </div>
+            </div>
+
+            <!-- Import Data View -->
+            <div id="importView" class="view">
+                <div class="view-header">
+                    <h2>استيراد البيانات</h2>
+                </div>
+                
+                <div class="import-section">
+                    <p class="info-text">اختر ملف CSV لاستيراد البيانات</p>
+                    <input type="file" id="csvFileInput" accept=".csv" class="file-input">
+                    <button id="importBtn" class="btn btn-primary">استيراد</button>
+                    
+                    <div id="importStatus" class="status-message"></div>
+                </div>
+            </div>
+
+            <!-- Export Data View -->
+            <div id="exportView" class="view">
+                <div class="view-header">
+                    <h2>تصدير البيانات</h2>
+                </div>
+                
+                <div class="export-section">
+                    <button id="exportCurrentMonthBtn" class="btn btn-primary">تصدير الشهر الحالي</button>
+                    <button id="exportAllDataBtn" class="btn btn-secondary">تصدير جميع البيانات</button>
+                </div>
+            </div>
+
+            <!-- Settings View -->
+            <div id="settingsView" class="view">
+                <div class="view-header">
+                    <h2>الإعدادات</h2>
+                </div>
+                
+                <div class="settings-section">
+                    <div class="setting-item">
+                        <label>تمكين الوضع المظلم</label>
+                        <input type="checkbox" id="darkModeToggle">
+                    </div>
+                    <div class="setting-item">
+                        <button id="clearDataBtn" class="btn btn-danger">مسح جميع البيانات</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="modal-close">&times;</span>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- Loading Indicator -->
+    <div id="loader" class="loader hidden">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast"></div>
+
+    <script src="db.js"></script>
+    <script src="csv-parser.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // Register Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.log('Service Worker registration failed:', err));
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "حلقة الفتح",
+  "short_name": "حلقة الفتح",
+  "description": "تطبيق إدارة حلقة الفتح لتسهيل عملية إدخال البيانات",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#2c3e50",
+  "theme_color": "#2c3e50",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
