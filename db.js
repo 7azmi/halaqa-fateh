@@ -213,7 +213,7 @@ class Database {
     async getEntryByStudentAndDate(studentId, date) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['entries'], 'readonly');
-            const store = transaction.objectStore(storeName);
+            const store = transaction.objectStore('entries');
             const index = store.index('studentDate');
             const request = index.get([studentId, date]);
 
@@ -233,7 +233,7 @@ class Database {
     async getEntriesInRange(startDate, endDate) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['entries'], 'readonly');
-            const store = transaction.objectStore(storeName);
+            const store = transaction.objectStore('entries');
             const index = store.index('date');
             const range = IDBKeyRange.bound(startDate, endDate);
             const request = index.getAll(range);
