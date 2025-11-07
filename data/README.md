@@ -10,17 +10,17 @@ This directory contains the data for the Halaqa Fateh application.
 
 - **processed/**: Processed data files (if any)
 
-- **masterlist.csv**: Consolidated data from all raw files in one sheet
-- **masterlist.xlsx**: Excel version of the masterlist
+- **masterlist.csv**: Consolidated data from all raw files in one sheet (v2)
+- **masterlist.xlsx**: Excel version of the masterlist (v2)
 
-## Masterlist
+## Masterlist (v2)
 
-The masterlist combines all raw data from 18 monthly CSV files into a single comprehensive dataset.
+The masterlist combines all raw data from 18 monthly CSV files into a single comprehensive dataset, with monthly statistics sections removed.
 
 ### Statistics
 
-- **Total Records**: 939 student-month records
-- **Unique Students**: 79
+- **Total Records**: 919 student-month records (cleaned)
+- **Unique Students**: 77
 - **Years Covered**: 1445, 1446, 1447 (Hijri calendar)
 - **Months**: 18 months total across 3 years
 - **Teachers**: Multiple teachers including خليل, محمد, عبدالله, and others
@@ -30,18 +30,25 @@ The masterlist combines all raw data from 18 monthly CSV files into a single com
 The masterlist includes the following key columns:
 
 1. **Year**: Hijri year (1445, 1446, 1447)
-2. **Month**: Islamic month name in Arabic
+2. **Month**: Month number (1-12, following Hijri calendar)
 3. **Student_Name**: Name of the student
-4. **Age**: Student's age
+4. **Hijri_DOB**: Student's Hijri date of birth (YYYY/M/D format)
 5. **Teacher**: Name of the teacher
-6. **Memorizing_To_Surah**: Which Surah the student is memorizing up to
-7. **Total_Attendance**: Total attendance days for the month
-8. **Total_Memorization_Score**: Sum of memorization scores (حفظ)
-9. **Days_With_Memorization**: Number of days with memorization activity
-10. **Total_Review_Score**: Sum of review scores (مراجعة)
-11. **Days_With_Review**: Number of days with review activity
-12. **Source_File**: Original file name for traceability
-13. **Raw_*** columns: All original daily performance data
+6. **Total_Attendance**: Total attendance days for the month
+7. **Total_Memorization_Score**: Sum of memorization scores (حفظ)
+8. **Days_With_Memorization**: Number of days with memorization activity
+9. **Total_Review_Score**: Sum of review scores (مراجعة)
+10. **Days_With_Review**: Number of days with review activity
+11. **Source_File**: Original file name for traceability
+12. **Raw_*** columns: All original daily performance data
+
+### Changes from v1
+
+- ✅ Removed `Memorizing_To_Surah` column (students had multiple entries)
+- ✅ Replaced month names with numeric month numbers (1-12)
+- ✅ Filtered out monthly statistics rows from raw data
+- ✅ Replaced `Age` with `Hijri_DOB` (Hijri date of birth)
+- ✅ Reduced from 939 to 919 records (statistics removed)
 
 ### Usage
 
@@ -57,8 +64,14 @@ The masterlist is designed to help you:
 
 - Empty rows have been removed
 - Records without student names have been filtered out
+- Monthly statistics sections have been filtered out
 - All data from the raw files has been preserved in Raw_* columns
 - Calculated fields (totals, counts) have been added for convenience
+- Hijri DOB calculated from age using: Birth Year = Record Year - Age
+
+### Important Note
+
+When a student has any daily review or memorization score, this means they attended that day. A student can still attend but not have a daily score recorded.
 
 ## Next Steps
 

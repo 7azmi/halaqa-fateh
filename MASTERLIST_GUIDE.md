@@ -1,21 +1,21 @@
-# Masterlist Guide
+# Masterlist Guide (v2)
 
 ## Overview
 
-The masterlist has been successfully created from all raw data in the repository. This single sheet contains all student records from 18 monthly CSV files spanning 3 Hijri years.
+The masterlist has been successfully created from all raw data in the repository. This single sheet contains all student records from 18 monthly CSV files spanning 3 Hijri years, with monthly statistics sections filtered out.
 
 ## Files Created
 
-1. **`data/masterlist.csv`** - CSV format (288 KB)
-2. **`data/masterlist.xlsx`** - Excel format (295 KB)
+1. **`data/masterlist.csv`** - CSV format (cleaned and optimized)
+2. **`data/masterlist.xlsx`** - Excel format (cleaned and optimized)
 3. **`data/README.md`** - Documentation
 
 ## What's in the Masterlist?
 
 ### Summary Statistics
 
-- **Total Records**: 939 student-month entries
-- **Unique Students**: 79 students tracked
+- **Total Records**: 919 student-month entries (cleaned, statistics removed)
+- **Unique Students**: 77 students tracked
 - **Years Covered**: 1445, 1446, 1447 (Hijri)
 - **Months**: 18 months of data
 - **Teachers**: 8 teachers (خليل, محمد, عبدالله, and others)
@@ -23,32 +23,29 @@ The masterlist has been successfully created from all raw data in the repository
 ### Data Breakdown by Year
 
 **Year 1445** (5 months)
-- 325 records
-- 70 unique students
-- Months: ذو الحجة, ذو القعدة, رجب, شعبان, شوال
+- Records from months 7, 8, 10, 11, 12
+- Months: رجب (7), شعبان (8), شوال (10), ذو القعدة (11), ذو الحجة (12)
 
 **Year 1446** (9 months)
-- 424 records
-- 61 unique students
-- Months: محرم through ذو الحجة
+- Records from months 1, 3, 4, 5, 6, 7, 8, 11, 12
+- Months: محرم (1), ربيع الأول (3), ربيع الآخر (4), جمادى الأولى (5), جمادى الثانية (6), رجب (7), شعبان (8), ذو القعدة (11), ذو الحجة (12)
 
 **Year 1447** (4 months)
-- 190 records
-- 50 unique students
-- Months: محرم, صفر, ربيع أول, ربيع الآخر
+- Records from months 1, 2, 3, 4
+- Months: محرم (1), صفر (2), ربيع الأول (3), ربيع الآخر (4)
 
-### Column Structure (105 columns total)
+### Column Structure (104 columns total)
 
 #### 1. Metadata (3 columns)
-- `Year` - Hijri year
-- `Month` - Islamic month name
+- `Year` - Hijri year (e.g., 1445, 1446, 1447)
+- `Month` - Month number (1-12, following Hijri calendar)
 - `Source_File` - Original filename for traceability
 
-#### 2. Student Information (4 columns)
+#### 2. Student Information (3 columns)
 - `Student_Name` - اسم الطالب
-- `Age` - العمر
+- `Hijri_DOB` - Hijri date of birth (YYYY/M/D format, calculated from age)
 - `Teacher` - الأستاذ
-- `Memorizing_To_Surah` - يحفظ إلى سورة
+
 
 #### 3. Performance Summaries (5 columns)
 - `Total_Attendance` - Total days attended (حضور)
@@ -62,27 +59,26 @@ The masterlist has been successfully created from all raw data in the repository
 - Includes: حفظ (memorization), مراجعة (review), حضور (attendance) for each day
 - Column names prefixed with `Raw_`
 
-### Performance Insights
+### Important Notes
 
-- **Average Monthly Attendance**: 14.7 days
-- **Average Memorization Score**: 3.6
-- **Average Review Score**: 75.5
-- **Age Range**: 5 to 80 years
-- **Most Common Age**: 12 years (226 records)
+1. **Attendance Logic**: When a student has any daily review or memorization score, this means they attended that day. A student can still attend but not have a daily score recorded.
 
-### Top Students (by number of months recorded)
-1. عبدالمطلب حمزة - 22 months
-2. مالك عبدالقوي الصلوي - 22 months
-3. عبدالمجيد ابراهيم المجيد - 21 months
-4. حذيفة عبده قيراط - 21 months
-5. هاشم عبدالملك شيوبة - 21 months
+2. **Hijri Date of Birth**: Calculated from the student's age in the data using the formula: `Birth Year = Record Year - Age`. The date is set to 1/1 (1st of Muharram) as a default since exact birth dates are not available.
 
-### Top Surahs Being Memorized
-1. المرسلات - 65 records
-2. الملك - 58 records
-3. الجن - 50 records
-4. المجادلة - 49 records
-5. المزمل - 41 records
+3. **Month Numbers**: Months are now represented as numbers (1-12) following the Hijri calendar:
+   - 1 = محرم, 2 = صفر, 3 = ربيع الأول, 4 = ربيع الآخر
+   - 5 = جمادى الأولى, 6 = جمادى الثانية, 7 = رجب, 8 = شعبان
+   - 9 = رمضان, 10 = شوال, 11 = ذو القعدة, 12 = ذو الحجة
+
+4. **Statistics Removed**: Monthly statistics sections that appeared at the end of raw files (teacher summaries, performance comparisons) have been filtered out.
+
+## Changes from v1 to v2
+
+- ✅ **Removed** `Memorizing_To_Surah` column (students had multiple entries due to progression)
+- ✅ **Replaced** month names with numeric month numbers (1-12)
+- ✅ **Filtered** monthly statistics rows from raw data
+- ✅ **Replaced** `Age` with `Hijri_DOB` (date of birth in Hijri calendar)
+- ✅ **Reduced** records from 939 to 919 (removed statistics rows)
 
 ## How to Use the Masterlist
 
@@ -102,8 +98,9 @@ Based on the masterlist, consider these tables:
 **Students Table**
 - student_id (PK)
 - name
-- age
+- hijri_dob
 - teacher_id (FK)
+
 
 **Teachers Table**
 - teacher_id (PK)
@@ -112,9 +109,8 @@ Based on the masterlist, consider these tables:
 **Monthly_Performance Table**
 - performance_id (PK)
 - student_id (FK)
-- year
-- month
-- memorizing_to_surah
+- year (Hijri)
+- month (1-12)
 - total_attendance
 - total_memorization_score
 - total_review_score
@@ -123,7 +119,7 @@ Based on the masterlist, consider these tables:
 - daily_id (PK)
 - performance_id (FK)
 - day_number
-- attendance
+- attendance (derived from memorization or review activity)
 - memorization_score
 - review_score
 
