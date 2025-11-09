@@ -4,6 +4,7 @@ from pathlib import Path
 
 # --- CONFIG ---
 BASE_DIR = Path("data/processed/1447")
+YEAR = BASE_DIR.name  # automatically '1445' from folder name
 PERSON_FILE = Path("Person.csv")
 DAILY_FILE = Path("DailyEntry.csv")
 
@@ -100,7 +101,7 @@ for csv_file in sorted(BASE_DIR.glob("*.csv")):
             if hifz_val is None and mur_val is None:
                 continue
 
-            entry_date = f"1447-{month.zfill(2)}-{str(day_num).zfill(2)}"
+            entry_date = f"{YEAR}-{month.zfill(2)}-{str(day_num).zfill(2)}"
             key = (student_id, teacher_id, entry_date)
             if key in daily_entries_set:
                 print(f"DailyEntry exists for {student_name} on {entry_date}, skipping")
