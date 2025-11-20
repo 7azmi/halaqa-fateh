@@ -1,23 +1,27 @@
 @startuml
 !theme plain
 
-entity "Person" as Person {
-  * person_id : INT <<PK>>
-  ---
-  name : VARCHAR
-  birth_date : DATE
-  role : ENUM('student', 'teacher')
+package "data/database/Users.csv" {
+    entity "Users" as Users {
+      * user_id : INT <<PK>>
+      --
+      ' Positive IDs = Students
+      ' Negative IDs = Teachers
+      name : VARCHAR
+      birth_year : INT
+    }
 }
 
-entity "DailyEntry" as DailyEntry {
-  * entry_id : INT <<PK>>
-  ---
-  student_id : INT <<FK>> -> Person.person_id
-  teacher_id : INT <<FK>> -> Person.person_id
-  entry_date : DATE
-  hifz : DECIMAL
-  murajaah : DECIMAL
+package "data/database/{year}/{month}.csv" {
+    entity "DailyEntry" as DailyEntry {
+      * student_id : INT <<FK>>
+      * teacher_id : INT <<FK>>
+      * day : INT
+      --
+      hifz : DECIMAL
+      murajaah : DECIMAL
+    }
 }
 
-Person ||--o{ DailyEntry : participates_in
+Users ||--o{ DailyEntry : "tracked in"
 @enduml

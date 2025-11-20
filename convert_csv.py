@@ -3,53 +3,59 @@ import csv
 from pathlib import Path
 
 # --- CONFIG ---
-BASE_DIR = Path("data/processed/1447")
-YEAR = BASE_DIR.name  # automatically '1445' from folder name
-PERSON_FILE = Path("Person.csv")
-DAILY_FILE = Path("DailyEntry.csv")
+SOURCE_DIR = Path("data/processed")
+DB_DIR = Path("data/database")
+USERS_FILE = DB_DIR / "Users.csv"
 
-# --- Data holders ---
-persons = {}  # (name, role) -> person_id
-daily_entries_set = set()  # (student_id, teacher_id, entry_date) to detect duplicates
-person_id_counter = 1
-entry_id_counter = 1
+# Ensure DB directory exists
+DB_DIR.mkdir(parents=True, exist_ok=True)
 
-# --- Load existing Person.csv if exists ---
-if PERSON_FILE.exists():
-    with open(PERSON_FILE, "r", encoding="utf-8") as f:
+# --- DATA HOLDERS ---
+# users map: name -> {'id': int, 'role': str}
+users = {}
+next_student_id = 1
+next_teacher_id = -1
+
+# --- 1. Load Existing Users (if any) ---
+if USERS_FILE.exists():
+    print(f"📂 Loading existing users from {USERS_FILE}...")
+    with open(USERS_FILE, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            name, role, pid = row["name"], row["role"], int(row["person_id"])
-            persons[(name, role)] = pid
-        if persons:
-            person_id_counter = max(persons.values()) + 1
-    print(f"Loaded {len(persons)} existing persons")
-
-# --- Load existing DailyEntry.csv if exists ---
-if DAILY_FILE.exists():
-    with open(DAILY_FILE, "r", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            key = (int(row["student_id"]), int(row["teacher_id"]), row["entry_date"])
-            daily_entries_set.add(key)
-        if daily_entries_set:
-            entry_id_counter = max([int(row["entry_id"]) for row in csv.DictReader(open(DAILY_FILE))]) + 1
-    print(f"Loaded {len(daily_entries_set)} existing daily entries")
-
-# --- Helpers ---
-def get_or_create_person(name, role):
-    global person_id_counter
-    key = (name.strip(), role)
-    if key in persons:
-        print(f"Person exists: {name} ({role}), skipping creation")
-        return persons[key]
-    persons[key] = person_id_counter
-    print(f"Added person: {name} ({role}) -> id {person_id_counter}")
-    person_id_counter += 1
-    return persons[key]
+            uid = int(row["user_id"])
+            name = row["name"]
+            # Determine role based on ID sign
+            if uid > 0:
+                users[name] = {'id': uid, 'role': 'student'}
+                if uid >= next_student_id: next_student_id = uid + 1
+            else:
+                users[name] = {'id': uid, 'role': 'teacher'}
+                if uid <= next_teacher_id: next_teacher_id = uid - 1
+    print(f"   Loaded {len(users)} users. Next Student ID: {next_student_id}, Next Teacher ID: {next_teacher_id}")
 
 
-def parse_value(val):
+# --- HELPER FUNCTIONS ---
+def get_or_create_user_id(name, role):
+    global next_student_id, next_teacher_id
+    name = name.strip()
+
+    if name in users:
+        return users[name]['id']
+
+    if role == 'student':
+        new_id = next_student_id
+        next_student_id += 1
+    elif role == 'teacher':
+        new_id = next_teacher_id
+        next_teacher_id -= 1
+    else:
+        raise ValueError(f"Unknown role: {role}")
+
+    users[name] = {'id': new_id, 'role': role}
+    return new_id
+
+
+def parse_score(val):
     if val is None or val.strip() == "":
         return None
     try:
@@ -58,81 +64,93 @@ def parse_value(val):
         return None
 
 
-# --- Process CSVs ---
-new_daily_entries = []
+# --- 2. Process All Files recursively ---
+source_files = sorted(list(SOURCE_DIR.rglob("*.csv")))
+print(f"\n🚀 Starting conversion of {len(source_files)} files...")
 
-for csv_file in sorted(BASE_DIR.glob("*.csv")):
-    month = csv_file.stem
-    print(f"Processing: {csv_file.name}")
+for src_file in source_files:
+    try:
+        year_dir = src_file.parent.name  # e.g., 1447
+        month_name = src_file.stem  # e.g., 1
 
-    with open(csv_file, "r", encoding="utf-8-sig") as f:
-        reader = csv.reader(f)
-        rows = [r for r in reader if any(r)]
+        # Prepare output directory: data/database/1447/
+        target_dir = DB_DIR / year_dir
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_file = target_dir / f"{month_name}.csv"
 
-    if len(rows) < 3:
-        continue
+        # Dictionary to handle uniqueness: Key = (student_id, teacher_id, day)
+        month_entries = {}
 
-    header = rows[1]
-    data_rows = rows[4:]
+        with open(src_file, "r", encoding="utf-8-sig") as f:
+            reader = csv.reader(f)
+            rows = [r for r in reader if any(r)]
 
-    day_indices = []
-    for i in range(3, len(header), 2):
-        day_num = (i - 3) // 2 + 1
-        if i + 1 < len(header):
-            day_indices.append((day_num, i, i + 1))
-
-    for row in data_rows:
-        if len(row) < 3:
+        if len(rows) < 3:
             continue
 
-        student_name = row[0].strip()
-        teacher_name = row[2].strip()
+        header = rows[1]
+        data_rows = rows[4:]
 
-        if not student_name or not teacher_name:
-            continue
+        # Map columns to days
+        day_indices = []
+        for col_idx in range(3, len(header), 2):
+            day_num = (col_idx - 3) // 2 + 1
+            if col_idx + 1 < len(header):
+                day_indices.append((day_num, col_idx, col_idx + 1))
 
-        student_id = get_or_create_person(student_name, "student")
-        teacher_id = get_or_create_person(teacher_name, "teacher")
+        for row in data_rows:
+            if len(row) < 3: continue
 
-        for day_num, hifz_idx, mur_idx in day_indices:
-            hifz_val = parse_value(row[hifz_idx]) if hifz_idx < len(row) else None
-            mur_val = parse_value(row[mur_idx]) if mur_idx < len(row) else None
+            student_name = row[0].strip()
+            teacher_name = row[2].strip()
 
-            if hifz_val is None and mur_val is None:
-                continue
+            if not student_name or not teacher_name: continue
 
-            entry_date = f"{YEAR}-{month.zfill(2)}-{str(day_num).zfill(2)}"
-            key = (student_id, teacher_id, entry_date)
-            if key in daily_entries_set:
-                print(f"DailyEntry exists for {student_name} on {entry_date}, skipping")
-                continue
+            s_id = get_or_create_user_id(student_name, 'student')
+            t_id = get_or_create_user_id(teacher_name, 'teacher')
 
-            daily_entries_set.add(key)
-            new_daily_entries.append({
-                "entry_id": entry_id_counter,
-                "student_id": student_id,
-                "teacher_id": teacher_id,
-                "entry_date": entry_date,
-                "hifz": hifz_val,
-                "murajaah": mur_val
-            })
-            entry_id_counter += 1
+            for day_num, h_idx, m_idx in day_indices:
+                h_val = parse_score(row[h_idx]) if h_idx < len(row) else None
+                m_val = parse_score(row[m_idx]) if m_idx < len(row) else None
 
-# --- Write persons (overwrite existing) ---
-with open(PERSON_FILE, "w", newline="", encoding="utf-8") as f:
+                if h_val is None and m_val is None:
+                    continue
+
+                # Composite Key Tuple (not saved to CSV, used for uniqueness only)
+                key_tuple = (s_id, t_id, day_num)
+
+                entry_data = {
+                    "student_id": s_id,
+                    "teacher_id": t_id,
+                    "day": day_num,
+                    "hifz": h_val,
+                    "murajaah": m_val
+                }
+
+                # Insert into dict (overwrites previous if duplicate exists)
+                month_entries[key_tuple] = entry_data
+
+        # Write the Month CSV
+        if month_entries:
+            with open(target_file, "w", newline="", encoding="utf-8") as f:
+                fieldnames = ["student_id", "teacher_id", "day", "hifz", "murajaah"]
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(month_entries.values())
+            print(f"   ✅ Parsed {year_dir}/{month_name}: {len(month_entries)} entries saved.")
+
+    except Exception as e:
+        print(f"   ❌ Error processing {src_file}: {e}")
+
+# --- 3. Save Users File ---
+print(f"\n💾 Saving Users database to {USERS_FILE}...")
+with open(USERS_FILE, "w", newline="", encoding="utf-8") as f:
     writer = csv.writer(f)
-    writer.writerow(["person_id", "name", "role"])
-    for (name, role), pid in persons.items():
-        writer.writerow([pid, name, role])
+    writer.writerow(["user_id", "name", "birth_year"])
 
-# --- Append new daily entries ---
-if new_daily_entries:
-    write_header = not DAILY_FILE.exists()
-    with open(DAILY_FILE, "a", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["entry_id", "student_id", "teacher_id", "entry_date", "hifz", "murajaah"])
-        if write_header:
-            writer.writeheader()
-        writer.writerows(new_daily_entries)
+    sorted_users = sorted(users.items(), key=lambda x: x[1]['id'])
 
-print(f"\n✅ Done!")
-print(f"Persons: {len(persons)}, New Daily Entries added: {len(new_daily_entries)}")
+    for name, data in sorted_users:
+        writer.writerow([data['id'], name, ""])
+
+print("✨ All done.")
