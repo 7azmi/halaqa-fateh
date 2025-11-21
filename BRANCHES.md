@@ -165,7 +165,7 @@ For enhanced security and access control, `fateh-database` could be moved to its
 ## Related Documentation
 
 - [GitHub: Managing Branches](https://docs.github.com/en/repositories/working-with-branches-and-tags/about-branches)
-- [GitHub API: Repos](https://docs.github.com/en/rest/repos/branches?apiVersion=2022-11-28)
+- [GitHub API: Repos](https://docs.github.com/en/rest/repos/branches) (check for latest API version)
 - [GitHub API: Contents](https://docs.github.com/en/rest/repos/contents)
 
 ## Questions or Issues?

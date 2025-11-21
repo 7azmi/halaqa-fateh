@@ -32,7 +32,7 @@ This document provides a summary of the branch structure setup performed for the
 
 **Commit**: 22ab4d0 - "Create fateh-database branch with final database files only"
 
-**Files Count**: 15 database CSV files + 1 Users.csv + 1 README
+**Files Count**: 16 database CSV files (including Users.csv) + 1 README
 
 ---
 
@@ -56,9 +56,10 @@ data/processed/1447/*.csv (4 files)
 .gitignore
 README.md
 data/database/Users.csv
-data/database/1445/12.csv
+data/database/1445/12.csv (1 file)
 data/database/1446/*.csv (9 files)
 data/database/1447/*.csv (4 files)
+Total: 16 database CSV files
 ```
 
 ## Next Steps
