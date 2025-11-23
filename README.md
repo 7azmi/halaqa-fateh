@@ -181,9 +181,18 @@ The application works 100% offline:
 - Import/export for data persistence
 - No internet connection needed
 
+## Security Considerations
+
+For production deployment:
+- **JSZip CDN**: Consider downloading JSZip library and hosting it locally, or add integrity check (SRI)
+- **CSV Limitations**: Current CSV parser is simplified. User names should not contain commas
+- **Import Validation**: ZIP imports are validated for file type, size (10MB limit), and path structure
+
 ## Future Enhancements
 
 Potential improvements:
+- Host JSZip locally with integrity check
+- Enhanced CSV parser for complex values
 - IndexedDB for persistent storage
 - Print reports
 - Advanced filtering
