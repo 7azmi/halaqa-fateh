@@ -58,12 +58,14 @@ async function initApp() {
 }
 
 // Tab switching
-function switchTab(tabName) {
+function switchTab(tabName, event) {
     document.querySelectorAll('.tab-content').forEach(tab => tab.classList.remove('active'));
     document.querySelectorAll('.nav-tab').forEach(tab => tab.classList.remove('active'));
     
     document.getElementById(tabName).classList.add('active');
-    event.target.classList.add('active');
+    if (event && event.target) {
+        event.target.classList.add('active');
+    }
 
     if (tabName === 'stats') {
         renderStats();
@@ -370,6 +372,18 @@ async function handleImport(event) {
     const file = event.target.files[0];
     if (!file) return;
 
+    // Basic validation
+    if (!file.name.endsWith('.zip')) {
+        alert('يرجى اختيار ملف ZIP');
+        return;
+    }
+    
+    // Size limit: 10MB
+    if (file.size > 10 * 1024 * 1024) {
+        alert('حجم الملف كبير جداً. الحد الأقصى 10 ميجابايت');
+        return;
+    }
+
     const statusDiv = document.getElementById('importStatus');
     statusDiv.innerHTML = '<div class="loading">جارٍ استيراد البيانات...</div>';
 
@@ -377,12 +391,18 @@ async function handleImport(event) {
         const zip = new JSZip();
         const zipContent = await zip.loadAsync(file);
         const files = {};
+        let fileCount = 0;
 
         for (const [path, zipEntry] of Object.entries(zipContent.files)) {
-            if (!zipEntry.dir && path.endsWith('.csv')) {
-                const content = await zipEntry.async('text');
+            // Security: Only accept CSV files in expected paths
+            if (!zipEntry.dir && path.endsWith('.csv') && fileCount < 100) {
+                // Validate path structure
                 const cleanPath = path.replace(/^database\//, '');
-                files[cleanPath] = content;
+                if (cleanPath === 'Users.csv' || cleanPath.match(/^\d{4}\/\d{1,2}\.csv$/)) {
+                    const content = await zipEntry.async('text');
+                    files[cleanPath] = content;
+                    fileCount++;
+                }
             }
         }
 

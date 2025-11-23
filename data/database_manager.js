@@ -14,6 +14,8 @@ class DatabaseManager {
 
   /**
    * Parse CSV text to array of objects
+   * Note: Simplified CSV parser. Assumes values don't contain commas.
+   * Suitable for current use case with Arabic names and numeric values.
    */
   parseCSV(csvText, headers = null) {
     const lines = csvText.trim().split('\n');
@@ -34,6 +36,7 @@ class DatabaseManager {
 
   /**
    * Convert array of objects to CSV text
+   * Note: Simplified CSV generation. Values should not contain commas.
    */
   toCSV(data, headers) {
     if (data.length === 0) return headers.join(',') + '\n';
