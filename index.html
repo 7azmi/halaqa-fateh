@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>منصة متابعة الطلاب</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Kufi Arabic', sans-serif;
+            background-color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Hide scrollbar for clean UI */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Custom number input styling */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+
+        .slide-enter {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Mobile optimizations */
+        .touch-target {
+            min-height: 44px;
+            min-width: 44px;
+        }
+    </style>
+</head>
+<body class="text-slate-800 pb-24">
+
+<!-- Header -->
+<header class="fixed top-0 left-0 right-0 bg-emerald-600 text-white z-50 shadow-lg">
+    <div class="container mx-auto px-4 py-3">
+        <div class="flex justify-between items-center">
+            <div>
+                <h1 class="text-lg font-bold">حلقة الفتح</h1>
+                <div class="text-emerald-100 text-xs flex items-center gap-2">
+                    <span id="hijri-date">جاري التحميل...</span>
+                    <button onclick="goToToday()" class="bg-emerald-700 hover:bg-emerald-800 px-2 py-0.5 rounded text-[10px] transition-colors">
+                        اليوم
+                    </button>
+                </div>
+            </div>
+            <div class="flex gap-2 bg-emerald-700/50 p-1 rounded-lg">
+                <button onclick="switchView('daily')" id="btn-view-daily" class="px-3 py-1.5 rounded-md text-sm transition-all font-medium">اليومية</button>
+                <button onclick="switchView('students')" id="btn-view-students" class="px-3 py-1.5 rounded-md text-sm transition-all font-medium">الطلاب</button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<!-- Main Content -->
+<main class="container mx-auto px-4 pt-24 transition-all duration-300" id="main-content">
+    <!-- Views will be injected here -->
+</main>
+
+<!-- Offline Indicator -->
+<div id="offline-indicator" class="fixed bottom-4 left-4 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-full shadow-lg opacity-0 transition-opacity duration-300 flex items-center gap-2 pointer-events-none">
+    <div class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+    <span>تم الحفظ محلياً</span>
+</div>
+
+<script>
+    // --- Data & State ---
+    const TEACHERS = {
+        KHALIL: 'خليل',
+        MOHAMMED: 'محمد'
+    };
+
+    const STUDENTS = [
+        { id: 1, name: 'عبدالرحمن محمد', age: 12, teacher: TEACHERS.KHALIL },
+        { id: 2, name: 'عمر خالد', age: 11, teacher: TEACHERS.KHALIL },
+        { id: 3, name: 'يوسف أحمد', age: 13, teacher: TEACHERS.KHALIL },
+        { id: 4, name: 'علي حسن', age: 10, teacher: TEACHERS.MOHAMMED },
+        { id: 5, name: 'إبراهيم سعيد', age: 12, teacher: TEACHERS.MOHAMMED },
+        { id: 6, name: 'خالد عبدالله', age: 11, teacher: TEACHERS.MOHAMMED },
+        { id: 7, name: 'سلمان فهد', age: 14, teacher: TEACHERS.MOHAMMED },
+        { id: 8, name: 'فيصل عبدالعزيز', age: 10, teacher: TEACHERS.MOHAMMED },
+    ];
+
+    let state = {
+        view: 'daily', // 'daily' or 'students'
+        selectedDay: 1,
+        selectedTeacher: 'all',
+        data: {} // { studentId: { day: { hifz: number, muragaa: number, attendedOnly: boolean } } }
+    };
+
+    // --- Hijri Date Helper ---
+    function getHijriDate() {
+        return new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        }).format(new Date());
+    }
+
+    function getCurrentHijriDay() {
+        // Simplified estimation for demo purposes.
+        // In a real app, you'd map Gregorian dates to the specific Hijri month days of your session.
+        // Here we just map to a 1-30 cycle based on time to simulate progression
+        const today = new Date();
+        const dayOfMonth = today.getDate();
+        return (dayOfMonth % 30) || 30;
+    }
+
+    // --- Initialization ---
+    function init() {
+        loadData();
+        state.selectedDay = getCurrentHijriDay();
+        document.getElementById('hijri-date').textContent = getHijriDate();
+        render();
+    }
+
+    function loadData() {
+        const saved = localStorage.getItem('halqa_data_v2');
+        if (saved) {
+            state.data = JSON.parse(saved);
+        }
+    }
+
+    function saveData() {
+        localStorage.setItem('halqa_data_v2', JSON.stringify(state.data));
+        showSaveIndicator();
+    }
+
+    function showSaveIndicator() {
+        const el = document.getElementById('offline-indicator');
+        el.classList.remove('opacity-0');
+        setTimeout(() => el.classList.add('opacity-0'), 2000);
+    }
+
+    // --- Actions ---
+    function switchView(view) {
+        state.view = view;
+        render();
+    }
+
+    function setTeacher(teacher) {
+        state.selectedTeacher = teacher;
+        render();
+    }
+
+    function setDay(day) {
+        state.selectedDay = day;
+        render();
+    }
+
+    function goToToday() {
+        state.selectedDay = getCurrentHijriDay();
+        if (state.view === 'students') {
+            // If in student view, maybe switch to daily to show "today"?
+            // Or just stay in student view. Let's switch to daily for clarity.
+            state.view = 'daily';
+        }
+        render();
+    }
+
+    function updateScore(studentId, day, type, value) {
+        if (!state.data[studentId]) state.data[studentId] = {};
+        if (!state.data[studentId][day]) state.data[studentId][day] = { hifz: '', muragaa: '', attendedOnly: false };
+
+        const entry = state.data[studentId][day];
+
+        if (type === 'attendedOnly') {
+            entry.attendedOnly = value;
+            if (value) {
+                entry.hifz = '';
+                entry.muragaa = '';
+            }
+        } else {
+            entry[type] = value;
+            if (value !== '' && value !== null) {
+                entry.attendedOnly = false;
+            }
+        }
+
+        saveData();
+        render(); // Re-render to update UI state (e.g. hiding inputs)
+    }
+
+    // --- Rendering ---
+    function render() {
+        updateHeader();
+        const main = document.getElementById('main-content');
+        main.innerHTML = '';
+
+        if (state.view === 'daily') {
+            renderDailyView(main);
+        } else {
+            renderStudentsView(main);
+        }
+    }
+
+    function updateHeader() {
+        const btnDaily = document.getElementById('btn-view-daily');
+        const btnStudents = document.getElementById('btn-view-students');
+
+        const activeClass = 'bg-white text-emerald-700 shadow-sm';
+        const inactiveClass = 'text-emerald-100 hover:bg-emerald-600/50';
+
+        if (state.view === 'daily') {
+            btnDaily.className = `px-3 py-1.5 rounded-md text-sm transition-all font-medium ${activeClass}`;
+            btnStudents.className = `px-3 py-1.5 rounded-md text-sm transition-all font-medium ${inactiveClass}`;
+        } else {
+            btnDaily.className = `px-3 py-1.5 rounded-md text-sm transition-all font-medium ${inactiveClass}`;
+            btnStudents.className = `px-3 py-1.5 rounded-md text-sm transition-all font-medium ${activeClass}`;
+        }
+    }
+
+    function renderDailyView(container) {
+        // Day Selector
+        const dayNav = document.createElement('div');
+        dayNav.className = 'flex items-center justify-between mb-6 bg-white p-2 rounded-xl shadow-sm border border-slate-100 sticky top-20 z-40';
+        dayNav.innerHTML = `
+                <button onclick="setDay(${Math.max(1, state.selectedDay - 1)})" class="p-2 hover:bg-slate-100 rounded-lg text-slate-400 disabled:opacity-30" ${state.selectedDay <= 1 ? 'disabled' : ''}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                </button>
+                <div class="text-center">
+                    <div class="text-xs text-slate-500 font-medium">اليوم المحدد</div>
+                    <div class="text-xl font-bold text-emerald-600">اليوم ${state.selectedDay}</div>
+                </div>
+                <button onclick="setDay(${Math.min(30, state.selectedDay + 1)})" class="p-2 hover:bg-slate-100 rounded-lg text-slate-400 disabled:opacity-30" ${state.selectedDay >= 30 ? 'disabled' : ''}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                </button>
+            `;
+        container.appendChild(dayNav);
+
+        // Teacher Filter
+        const filter = document.createElement('div');
+        filter.className = 'flex gap-2 mb-4 overflow-x-auto no-scrollbar pb-2';
+        filter.innerHTML = `
+                <button onclick="setTeacher('all')" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.selectedTeacher === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">الكل</button>
+                <button onclick="setTeacher('${TEACHERS.KHALIL}')" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.selectedTeacher === TEACHERS.KHALIL ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">حلقة ${TEACHERS.KHALIL}</button>
+                <button onclick="setTeacher('${TEACHERS.MOHAMMED}')" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.selectedTeacher === TEACHERS.MOHAMMED ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">حلقة ${TEACHERS.MOHAMMED}</button>
+            `;
+        container.appendChild(filter);
+
+        // Students List
+        const studentsList = document.createElement('div');
+        studentsList.className = 'space-y-3';
+
+        const filteredStudents = STUDENTS.filter(s => state.selectedTeacher === 'all' || s.teacher === state.selectedTeacher);
+
+        filteredStudents.forEach(student => {
+            const entry = (state.data[student.id] && state.data[student.id][state.selectedDay]) || { hifz: '', muragaa: '', attendedOnly: false };
+            const isAttendedOnly = entry.attendedOnly;
+
+            const card = document.createElement('div');
+            card.className = `bg-white rounded-xl p-4 shadow-sm border transition-all ${isAttendedOnly ? 'border-emerald-200 bg-emerald-50/50' : 'border-slate-100'}`;
+
+            card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-sm">
+                                ${student.name.split(' ').map(n => n[0]).join('')}
+                            </div>
+                            <div>
+                                <div class="font-bold text-slate-800">${student.name}</div>
+                                <div class="text-xs text-slate-500">الشيخ ${student.teacher}</div>
+                            </div>
+                        </div>
+                        <button onclick="updateScore(${student.id}, ${state.selectedDay}, 'attendedOnly', ${!isAttendedOnly})"
+                            class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isAttendedOnly ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-50 text-slate-400 hover:bg-slate-100'}">
+                            ${isAttendedOnly ?
+                `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> حاضر` :
+                'حضور فقط'}
+                        </button>
+                    </div>
+
+                    ${isAttendedOnly ? `
+                        <div class="text-center py-2 text-sm text-emerald-600 font-medium bg-emerald-100/50 rounded-lg animate-pulse">
+                            تم تسجيل الحضور
+                        </div>
+                    ` : `
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-medium text-slate-500 block">الحفظ</label>
+                                <input type="number" inputmode="decimal" step="0.5" placeholder="-"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-center font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
+                                    value="${entry.hifz}"
+                                    onchange="updateScore(${student.id}, ${state.selectedDay}, 'hifz', this.value)"
+                                >
+                            </div>
+                            <div class="space-y-1.5">
+                                <label class="text-xs font-medium text-slate-500 block">المراجعة</label>
+                                <input type="number" inputmode="decimal" step="0.5" placeholder="-"
+                                    class="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2.5 text-center font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                    value="${entry.muragaa}"
+                                    onchange="updateScore(${student.id}, ${state.selectedDay}, 'muragaa', this.value)"
+                                >
+                            </div>
+                        </div>
+                    `}
+                `;
+            studentsList.appendChild(card);
+        });
+
+        container.appendChild(studentsList);
+    }
+
+    function renderStudentsView(container) {
+        // Teacher Filter
+        const filter = document.createElement('div');
+        filter.className = 'flex gap-2 mb-6 overflow-x-auto no-scrollbar pb-2';
+        filter.innerHTML = `
+                <button onclick="setTeacher('all')" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.selectedTeacher === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">الكل</button>
+                <button onclick="setTeacher('${TEACHERS.KHALIL}')" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.selectedTeacher === TEACHERS.KHALIL ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">حلقة ${TEACHERS.KHALIL}</button>
+                <button onclick="setTeacher('${TEACHERS.MOHAMMED}')" class="px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${state.selectedTeacher === TEACHERS.MOHAMMED ? 'bg-slate-800 text-white' : 'bg-white text-slate-600 border border-slate-200'}">حلقة ${TEACHERS.MOHAMMED}</button>
+            `;
+        container.appendChild(filter);
+
+        const grid = document.createElement('div');
+        grid.className = 'grid grid-cols-1 gap-4';
+
+        const filteredStudents = STUDENTS.filter(s => state.selectedTeacher === 'all' || s.teacher === state.selectedTeacher);
+
+        filteredStudents.forEach(student => {
+            // Calculate stats
+            let totalHifz = 0;
+            let totalMuragaa = 0;
+            let attendanceDays = 0;
+
+            if (state.data[student.id]) {
+                Object.values(state.data[student.id]).forEach(day => {
+                    const h = parseFloat(day.hifz) || 0;
+                    const m = parseFloat(day.muragaa) || 0;
+                    totalHifz += h;
+                    totalMuragaa += m;
+                    if (h > 0 || m > 0 || day.attendedOnly) {
+                        attendanceDays++;
+                    }
+                });
+            }
+
+            const card = document.createElement('div');
+            card.className = 'bg-white rounded-xl p-5 shadow-sm border border-slate-100 slide-enter';
+            card.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h3 class="font-bold text-lg text-slate-800">${student.name}</h3>
+                            <p class="text-sm text-slate-500">الشيخ ${student.teacher}</p>
+                        </div>
+                        <div class="bg-slate-100 text-slate-600 px-3 py-1 rounded-full text-xs font-bold">
+                            ${attendanceDays} يوم حضور
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+                            <div class="text-xs text-emerald-600 mb-1 font-medium">مجموع الحفظ</div>
+                            <div class="text-2xl font-bold text-emerald-700">${totalHifz}</div>
+                        </div>
+                        <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
+                            <div class="text-xs text-blue-600 mb-1 font-medium">مجموع المراجعة</div>
+                            <div class="text-2xl font-bold text-blue-700">${totalMuragaa}</div>
+                        </div>
+                    </div>
+                `;
+            grid.appendChild(card);
+        });
+
+        container.appendChild(grid);
+    }
+
+    // Start app
+    init();
+
+</script>
+</body>
+</html>
