@@ -2,129 +2,156 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>حلقة الفتح - إدخال بيانات التحفيظ</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Kufi+Arabic:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="styles.css">
+  <style>
+    body {
+      font-family: 'Noto Kufi Arabic', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
 </head>
-<body>
-  <header class="app-header">
-    <div class="header-main">
-      <h1 class="app-title">حلقة الفتح</h1>
-      <p class="app-subtitle">أداة لمشرف الحلقة لإدخال بيانات الحفظ والمراجعة</p>
+<body class="bg-slate-900 text-slate-50 pb-24">
+  <!-- Header -->
+  <header class="fixed top-0 left-0 right-0 bg-emerald-600 text-white z-40 shadow-lg">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
+      <div>
+        <h1 class="text-lg font-bold">حلقة الفتح</h1>
+        <div class="text-emerald-100 text-xs flex items-center gap-2">
+          <span id="connection-status">جاري التحقق من الاتصال...</span>
+        </div>
+      </div>
+      <div class="flex gap-2 bg-emerald-700/50 p-1 rounded-lg text-xs">
+        <button id="btn-view-daily" class="px-3 py-1.5 rounded-md font-medium bg-white text-emerald-700 shadow-sm">
+          اليومية
+        </button>
+        <button id="btn-view-students" class="px-3 py-1.5 rounded-md font-medium text-emerald-100 hover:bg-emerald-600/50">
+          الطلاب
+        </button>
+      </div>
     </div>
-    <div class="status-pill" id="connection-status">جاري التحقق من الاتصال...</div>
   </header>
 
-  <main class="app-main">
+  <main class="max-w-3xl mx-auto px-4 pt-24">
     <!-- Auth / setup view -->
-    <section id="auth-view" class="view active">
-      <h2 class="section-title">إعداد الاتصال بالمستودع</h2>
-      <p class="section-hint">
-        يتم حفظ البيانات في مستودع GitHub. يتم تخزين الرمز الشخصي في هذا الجهاز فقط.
-      </p>
+    <section id="auth-view" class="view active slide-enter">
+      <div class="glass-panel rounded-2xl p-5 shadow-xl border border-slate-200/60 bg-slate-900/40">
+        <h2 class="text-base font-semibold mb-1">إعداد الأداة للمرة الأولى</h2>
+        <p class="text-xs text-slate-300 mb-4">
+          سيتم حفظ بيانات الحلقة في المستودع الخاص بها، ويتم تخزين رمز الدخول في هذا الجهاز فقط.
+        </p>
 
-      <form id="auth-form" class="card form-card">
-        <div class="form-group">
-          <label for="token-input">رمز الوصول الشخصي (GitHub Token)</label>
-          <input
-            id="token-input"
-            type="password"
-            autocomplete="off"
-            placeholder="رمز الوصول الشخصي"
-            required
-          >
-          <p class="field-hint">
-            يُفضّل إنشاء رمز مخصص للمستودع فقط. يتم تخزين الرمز محليًا في المتصفح.
-          </p>
-        </div>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="owner-input">اسم الحساب</label>
-            <input id="owner-input" type="text" value="7azmi" required>
+        <form id="auth-form" class="space-y-4">
+          <div>
+            <label for="token-input" class="block text-xs font-medium mb-1.5">رمز الدخول الشخصي</label>
+            <input
+              id="token-input"
+              type="password"
+              autocomplete="off"
+              placeholder="أدخل الرمز هنا"
+              required
+              class="w-full bg-slate-900/70 border border-slate-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            >
+            <p class="text-[11px] text-slate-400 mt-1.5">
+              يتم استخدام هذا الرمز لحفظ بياناتك في المستودع بشكل آمن، ولا يغادر جهازك.
+            </p>
           </div>
-          <div class="form-group">
-            <label for="repo-input">اسم المستودع</label>
-            <input id="repo-input" type="text" value="halaqa-fateh" required>
-          </div>
-        </div>
 
-        <div class="form-row">
-          <div class="form-group">
-            <label for="branch-input">اسم الفرع</label>
-            <input id="branch-input" type="text" value="main" required>
-          </div>
-        </div>
-
-        <div class="form-actions">
-          <button type="submit" class="btn primary">حفظ ومتابعة</button>
-        </div>
-      </form>
+          <button type="submit" class="w-full inline-flex justify-center items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-medium rounded-2xl py-2.5 shadow-lg shadow-emerald-500/30 transition-colors">
+            حفظ ومتابعة
+          </button>
+        </form>
+      </div>
     </section>
 
     <!-- Main data-entry view -->
-    <section id="app-view" class="view">
-      <section class="card controls-card">
-        <h2 class="section-title">إدخال بيانات اليوم</h2>
-
-        <div class="form-row">
-          <div class="form-group">
-            <label for="teacher-select">المعلم</label>
-            <select id="teacher-select">
-              <option value="">جارٍ تحميل المعلمين...</option>
-            </select>
-          </div>
-
-          <div class="form-group date-group">
-            <label>التاريخ الهجري</label>
-            <div class="date-row">
-              <input id="hijri-day" type="number" min="1" max="30" placeholder="اليوم">
-              <input id="hijri-month" type="number" min="1" max="12" placeholder="الشهر">
-              <input id="hijri-year" type="number" min="1400" max="1600" placeholder="السنة">
+    <section id="app-view" class="view hidden slide-enter space-y-4">
+      <!-- Date & teacher controls -->
+      <section class="glass-panel rounded-2xl p-4 shadow-xl border border-slate-700/60 bg-slate-900/70 sticky top-20 z-30">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <div class="text-[11px] text-slate-400 mb-0.5">اليوم المحدد</div>
+            <div class="flex items-baseline gap-1.5">
+              <span class="text-lg font-semibold text-emerald-300" id="hijri-day-label">اليوم</span>
+              <span class="text-[11px] text-slate-400" id="hijri-date-label">التاريخ الهجري</span>
             </div>
           </div>
+          <button id="load-day-btn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-[11px] text-slate-100 hover:bg-slate-700">
+            تحميل بيانات اليوم
+          </button>
         </div>
 
-        <div class="controls-row">
-          <button id="load-day-btn" class="btn secondary">تحميل بيانات اليوم</button>
-          <button id="clear-day-btn" class="btn text">مسح القيم المعروضة</button>
+        <div class="grid grid-cols-3 gap-2 mb-3">
+          <input id="hijri-day" type="number" min="1" max="30" placeholder="اليوم"
+                 class="bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+          <input id="hijri-month" type="number" min="1" max="12" placeholder="الشهر"
+                 class="bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+          <input id="hijri-year" type="number" min="1400" max="1600" placeholder="السنة"
+                 class="bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+        </div>
+
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex-1">
+            <label for="teacher-select" class="block text-[11px] font-medium text-slate-300 mb-1">المعلم</label>
+            <select id="teacher-select"
+                    class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
+              <option value="">اختر المعلم</option>
+            </select>
+          </div>
+          <button id="clear-day-btn" class="text-[11px] text-slate-300 hover:text-slate-100 px-2 py-1 rounded-lg">
+            مسح القيم المعروضة
+          </button>
         </div>
       </section>
 
-      <section class="card students-card">
-        <header class="students-header">
-          <h3>قائمة الطلاب</h3>
-          <div class="students-header-meta">
-            <span id="students-count-label">عدد الطلاب: 0</span>
-            <button id="toggle-empty-btn" class="btn tiny">
-              إخفاء الطلاب بدون بيانات
-            </button>
+      <!-- Students list -->
+      <section class="glass-panel rounded-2xl p-3 shadow-xl border border-slate-800 bg-slate-900/70">
+        <header class="flex items-center justify-between mb-2">
+          <div class="flex flex-col">
+            <span class="text-sm font-semibold">قائمة الطلاب</span>
+            <span id="students-count-label" class="text-[11px] text-slate-400">عدد الطلاب: 0</span>
           </div>
+          <button id="toggle-empty-btn" class="px-3 py-1.5 rounded-full text-[11px] bg-slate-800 text-slate-100 hover:bg-slate-700">
+            إخفاء الطلاب بدون بيانات
+          </button>
         </header>
 
-        <div id="students-list" class="students-list">
+        <div id="students-list" class="no-scrollbar max-h-[60vh] overflow-y-auto space-y-2">
           <!-- Filled dynamically -->
         </div>
       </section>
     </section>
   </main>
 
-  <footer class="app-footer">
-    <div class="footer-main">
-      <div class="footer-stats">
-        <span id="present-count">الحاضرون: 0</span>
-        <span id="pending-count">سجلات غير مُرسَلة: 0</span>
+  <!-- Footer summary & actions -->
+  <footer class="fixed inset-x-0 bottom-0 z-40">
+    <div class="max-w-3xl mx-auto px-3 pb-3">
+      <div class="glass-panel rounded-2xl px-3 py-2.5 shadow-2xl border border-slate-800 bg-slate-900/95 flex flex-col gap-2">
+        <div class="flex items-center justify-between text-[11px] text-slate-300">
+          <span id="present-count">الحاضرون: 0</span>
+          <span id="pending-count">سجلات غير مُرسَلة: 0</span>
+        </div>
+        <div class="flex gap-2">
+          <button id="save-local-btn" class="flex-1 inline-flex justify-center items-center rounded-2xl bg-slate-800 text-slate-100 text-sm py-2.5">
+            حفظ محليًا
+          </button>
+          <button id="sync-btn" class="flex-1 inline-flex justify-center items-center rounded-2xl bg-gradient-to-l from-emerald-500 to-cyan-400 text-slate-900 text-sm font-semibold py-2.5 shadow-lg shadow-emerald-500/40">
+            مزامنة البيانات
+          </button>
+        </div>
+        <div class="flex justify-between items-center text-[11px] text-slate-400">
+          <button id="open-settings-btn" class="hover:text-slate-100">إعدادات الاتصال</button>
+        </div>
       </div>
-      <div class="footer-actions">
-        <button id="save-local-btn" class="btn secondary">حفظ محليًا</button>
-        <button id="sync-btn" class="btn primary">مزامنة مع GitHub</button>
-      </div>
-    </div>
-    <div class="footer-secondary">
-      <button id="open-settings-btn" class="btn text small">إعدادات الاتصال</button>
     </div>
   </footer>
 
+  <!-- Toast -->
   <div id="toast" class="toast" aria-live="polite"></div>
 
   <script src="app.js" defer></script>

@@ -1,9 +1,6 @@
 (() => {
   const LS_KEYS = {
     token: 'hf_github_token',
-    owner: 'hf_repo_owner',
-    repo: 'hf_repo_name',
-    branch: 'hf_repo_branch',
     pending: 'hf_pending_entries_v1',
     cacheMeta: 'hf_cache_meta_v1',
     students: 'hf_students_csv_v1',
@@ -11,7 +8,9 @@
     lastTeacherId: 'hf_last_teacher_id',
   };
 
-  const REPO_SUGGESTION_URL = 'https://github.com/7azmi/halaqa-fateh';
+  const DEFAULT_OWNER = '7azmi';
+  const DEFAULT_REPO = 'halaqa-fateh';
+  const DEFAULT_BRANCH = 'main';
 
   const authView = document.getElementById('auth-view');
   const appView = document.getElementById('app-view');
@@ -19,9 +18,6 @@
 
   const authForm = document.getElementById('auth-form');
   const tokenInput = document.getElementById('token-input');
-  const ownerInput = document.getElementById('owner-input');
-  const repoInput = document.getElementById('repo-input');
-  const branchInput = document.getElementById('branch-input');
 
   const teacherSelect = document.getElementById('teacher-select');
   const hijriDayInput = document.getElementById('hijri-day');
@@ -78,17 +74,14 @@
   function getConfig() {
     return {
       token: localStorage.getItem(LS_KEYS.token) || '',
-      owner: localStorage.getItem(LS_KEYS.owner) || ownerInput.value || '7azmi',
-      repo: localStorage.getItem(LS_KEYS.repo) || repoInput.value || 'halaqa-fateh',
-      branch: localStorage.getItem(LS_KEYS.branch) || branchInput.value || 'main',
+      owner: DEFAULT_OWNER,
+      repo: DEFAULT_REPO,
+      branch: DEFAULT_BRANCH,
     };
   }
 
   function saveConfig(cfg) {
     localStorage.setItem(LS_KEYS.token, cfg.token);
-    localStorage.setItem(LS_KEYS.owner, cfg.owner);
-    localStorage.setItem(LS_KEYS.repo, cfg.repo);
-    localStorage.setItem(LS_KEYS.branch, cfg.branch);
   }
 
   function getPendingEntries() {
@@ -249,8 +242,8 @@
   function withConfigCheck(fn) {
     return async (...args) => {
       const cfg = getConfig();
-      if (!cfg.token || !cfg.owner || !cfg.repo || !cfg.branch) {
-        showToast('الرجاء إعداد الاتصال أولاً.');
+      if (!cfg.token) {
+        showToast('الرجاء إعداد رمز الدخول أولاً.');
         return;
       }
       return fn(cfg, ...args);
@@ -337,8 +330,8 @@
         localStorage.setItem(LS_KEYS.students, studentsCsv);
         localStorage.setItem(LS_KEYS.teachers, teachersCsv);
       } catch (err) {
-        console.warn('تعذر تحميل البيانات من GitHub، سيتم استخدام النسخة المخزنة محليًا إن وجدت.', err);
-        showToast('تعذر الوصول إلى GitHub، سيتم استخدام البيانات المخزنة محليًا إن وجدت.');
+        console.warn('تعذر تحميل بيانات الطلاب/المعلمين من المستودع، سيتم استخدام النسخة المخزنة محليًا إن وجدت.', err);
+        showToast('تعذر الوصول للمستودع، سيتم استخدام البيانات المخزنة محليًا إن وجدت.');
       }
     }
     if (!studentsCsv || !teachersCsv) {
@@ -406,18 +399,20 @@
     const newPending = Array.from(byKey.values());
     savePendingEntries(newPending);
     recalcPresentCount();
-    showToast('تم حفظ بيانات اليوم محليًا. يمكن مزامنتها لاحقًا مع GitHub.');
+      showToast('تم حفظ بيانات اليوم محليًا. يمكن مزامنتها لاحقًا عند توفر الاتصال.');
   }
 
-  const syncPendingToGithub = withConfigCheck(async (cfg) => {
+  async function syncPendingToGithubInternal(cfg, { silent } = {}) {
     const pending = getPendingEntries();
     if (!pending.length) {
-      showToast('لا توجد سجلات غير مُرسَلة.');
+      if (!silent) showToast('لا توجد سجلات غير مُرسَلة.');
       return;
     }
-    syncBtn.disabled = true;
-    saveLocalBtn.disabled = true;
-    showToast('جاري مزامنة السجلات مع GitHub...');
+    if (!silent) {
+      syncBtn.disabled = true;
+      saveLocalBtn.disabled = true;
+      showToast('جاري مزامنة السجلات مع المستودع...');
+    }
 
     try {
       const file = await loadCsvFile('daily_progress.csv');
@@ -472,15 +467,33 @@
 
       savePendingEntries([]);
       recalcPresentCount();
-      showToast('تمت المزامنة بنجاح مع GitHub.');
+      if (!silent) showToast('تمت مزامنة البيانات بنجاح.');
     } catch (err) {
       console.error(err);
-      showToast('فشلت المزامنة مع GitHub. ستبقى البيانات محفوظة محليًا.');
+      if (!silent) showToast('فشلت المزامنة مع المستودع. ستبقى البيانات محفوظة محليًا.');
     } finally {
-      syncBtn.disabled = false;
-      saveLocalBtn.disabled = false;
+      if (!silent) {
+        syncBtn.disabled = false;
+        saveLocalBtn.disabled = false;
+      }
     }
-  });
+  }
+
+  const syncPendingToGithub = withConfigCheck((cfg) =>
+    syncPendingToGithubInternal(cfg, { silent: false })
+  );
+
+  async function backgroundSyncIfPossible() {
+    if (!navigator.onLine) return;
+    const cfg = getConfig();
+    if (!cfg.token) return;
+    if (!getPendingEntries().length) return;
+    try {
+      await syncPendingToGithubInternal(cfg, { silent: true });
+    } catch (err) {
+      console.warn('خلفية: فشل في المزامنة، سيتم المحاولة لاحقاً.', err);
+    }
+  }
 
   function switchToAppView() {
     authView.classList.remove('active');
@@ -495,9 +508,6 @@
   function initConfigUI() {
     const cfg = getConfig();
     tokenInput.value = cfg.token;
-    ownerInput.value = cfg.owner;
-    repoInput.value = cfg.repo;
-    branchInput.value = cfg.branch;
   }
 
   function initConnectionStatus() {
@@ -509,7 +519,7 @@
   function registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
-        .register('/sw.js')
+        .register('sw.js')
         .catch((err) => console.warn('SW registration failed', err));
     }
   }
@@ -519,12 +529,9 @@
       e.preventDefault();
       const cfg = {
         token: tokenInput.value.trim(),
-        owner: ownerInput.value.trim(),
-        repo: repoInput.value.trim(),
-        branch: branchInput.value.trim(),
       };
       if (!cfg.token) {
-        showToast('الرجاء إدخال رمز الوصول الشخصي.');
+        showToast('الرجاء إدخال رمز الدخول الشخصي.');
         return;
       }
       saveConfig(cfg);
@@ -532,7 +539,7 @@
       localStorage.setItem(LS_KEYS.teachers, '');
       switchToAppView();
       loadStudentsAndTeachers();
-      showToast('تم حفظ الإعدادات. سيتم استخدام المستودع المقترح إن لم تُحدد غيره.');
+      showToast('تم حفظ الإعدادات. يمكنك الآن البدء في إدخال بيانات الطلاب.');
     });
 
     teacherSelect.addEventListener('change', () => {
@@ -581,6 +588,7 @@
 
     loadDayBtn.addEventListener('click', () => {
       renderStudents();
+      backgroundSyncIfPossible();
       showToast('تم تحديث القيم بناءً على اليوم المختار.');
     });
 
