@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>حلقة الفتح - إدخال بيانات التحفيظ</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-main">
+      <h1 class="app-title">حلقة الفتح</h1>
+      <p class="app-subtitle">أداة لمشرف الحلقة لإدخال بيانات الحفظ والمراجعة</p>
+    </div>
+    <div class="status-pill" id="connection-status">جاري التحقق من الاتصال...</div>
+  </header>
+
+  <main class="app-main">
+    <!-- Auth / setup view -->
+    <section id="auth-view" class="view active">
+      <h2 class="section-title">إعداد الاتصال بالمستودع</h2>
+      <p class="section-hint">
+        يتم حفظ البيانات في مستودع GitHub. يتم تخزين الرمز الشخصي في هذا الجهاز فقط.
+      </p>
+
+      <form id="auth-form" class="card form-card">
+        <div class="form-group">
+          <label for="token-input">رمز الوصول الشخصي (GitHub Token)</label>
+          <input
+            id="token-input"
+            type="password"
+            autocomplete="off"
+            placeholder="رمز الوصول الشخصي"
+            required
+          >
+          <p class="field-hint">
+            يُفضّل إنشاء رمز مخصص للمستودع فقط. يتم تخزين الرمز محليًا في المتصفح.
+          </p>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="owner-input">اسم الحساب</label>
+            <input id="owner-input" type="text" value="7azmi" required>
+          </div>
+          <div class="form-group">
+            <label for="repo-input">اسم المستودع</label>
+            <input id="repo-input" type="text" value="halaqa-fateh" required>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="branch-input">اسم الفرع</label>
+            <input id="branch-input" type="text" value="main" required>
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="submit" class="btn primary">حفظ ومتابعة</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- Main data-entry view -->
+    <section id="app-view" class="view">
+      <section class="card controls-card">
+        <h2 class="section-title">إدخال بيانات اليوم</h2>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label for="teacher-select">المعلم</label>
+            <select id="teacher-select">
+              <option value="">جارٍ تحميل المعلمين...</option>
+            </select>
+          </div>
+
+          <div class="form-group date-group">
+            <label>التاريخ الهجري</label>
+            <div class="date-row">
+              <input id="hijri-day" type="number" min="1" max="30" placeholder="اليوم">
+              <input id="hijri-month" type="number" min="1" max="12" placeholder="الشهر">
+              <input id="hijri-year" type="number" min="1400" max="1600" placeholder="السنة">
+            </div>
+          </div>
+        </div>
+
+        <div class="controls-row">
+          <button id="load-day-btn" class="btn secondary">تحميل بيانات اليوم</button>
+          <button id="clear-day-btn" class="btn text">مسح القيم المعروضة</button>
+        </div>
+      </section>
+
+      <section class="card students-card">
+        <header class="students-header">
+          <h3>قائمة الطلاب</h3>
+          <div class="students-header-meta">
+            <span id="students-count-label">عدد الطلاب: 0</span>
+            <button id="toggle-empty-btn" class="btn tiny">
+              إخفاء الطلاب بدون بيانات
+            </button>
+          </div>
+        </header>
+
+        <div id="students-list" class="students-list">
+          <!-- Filled dynamically -->
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <div class="footer-main">
+      <div class="footer-stats">
+        <span id="present-count">الحاضرون: 0</span>
+        <span id="pending-count">سجلات غير مُرسَلة: 0</span>
+      </div>
+      <div class="footer-actions">
+        <button id="save-local-btn" class="btn secondary">حفظ محليًا</button>
+        <button id="sync-btn" class="btn primary">مزامنة مع GitHub</button>
+      </div>
+    </div>
+    <div class="footer-secondary">
+      <button id="open-settings-btn" class="btn text small">إعدادات الاتصال</button>
+    </div>
+  </footer>
+
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <script src="app.js" defer></script>
+</body>
+</html>
+
