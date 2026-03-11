@@ -8,6 +8,7 @@
     lastTeacherId: 'hf_last_teacher_id',
     archivedStudents: 'hf_archived_students_v1',
     archivedTeachers: 'hf_archived_teachers_v1',
+    studentTeacherOverrides: 'hf_student_teacher_overrides_v1',
   };
 
   const DEFAULT_OWNER = '7azmi';
@@ -33,7 +34,6 @@
   const hijriMonthInput = document.getElementById('hijri-month');
   const hijriYearInput = document.getElementById('hijri-year');
   const loadDayBtn = document.getElementById('load-day-btn');
-  const clearDayBtn = document.getElementById('clear-day-btn');
 
   const studentsListEl = document.getElementById('students-list');
   const studentsCountLabel = document.getElementById('students-count-label');
@@ -228,8 +228,45 @@
     return row;
   }
 
+  function getStudentTeacherOverrides() {
+    const raw = localStorage.getItem(LS_KEYS.studentTeacherOverrides);
+    const parsed = safeJSONParse(raw, {});
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  }
+
+  function saveStudentTeacherOverrides(overrides) {
+    localStorage.setItem(LS_KEYS.studentTeacherOverrides, JSON.stringify(overrides || {}));
+  }
+
+  function attachTeacherMappingUI(row, stu) {
+    const meta = row.querySelector('.student-meta');
+    if (!meta) return;
+    const currentTid = studentDefaultTeacher[stu.id];
+    const container = document.createElement('div');
+    container.className = 'mt-1 flex items-center gap-1 text-[10px] text-slate-500';
+
+    const label = document.createElement('span');
+    label.textContent = 'الحلقة:';
+    container.appendChild(label);
+
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.dataset.studentId = String(stu.id);
+    chip.className =
+      'student-teacher-chip px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10px] text-slate-700 hover:bg-emerald-50';
+
+    if (currentTid) {
+      const teacher = teachers.find((t) => t.id === currentTid);
+      chip.textContent = teacher ? teacher.full_name : 'غير محددة';
+    } else {
+      chip.textContent = 'غير محددة';
+    }
+
+    container.appendChild(chip);
+    meta.appendChild(container);
+  }
+
   function renderStudents() {
-    if (!studentsListEl) return;
     if (!studentsListEl) return;
     studentsListEl.innerHTML = '';
     let count = 0;
@@ -248,18 +285,44 @@
           return;
         }
       }
+
       const row = buildStudentRow(stu);
+      attachTeacherMappingUI(row, stu);
+
       const key = `${stu.id}|${selectedTeacherId}|${currentDate}`;
       const hasPending = pendingKey.has(key);
       if (hasPending) {
         row.classList.add('pending-local');
       }
+
+      const existing = findExistingEntry(stu.id, selectedTeacherId, currentDate, pending);
+      if (existing && selectedTeacherId) {
+        const hifzInput = row.querySelector('.input-hifz');
+        const murInput = row.querySelector('.input-muragaa');
+        const attendBtn = row.querySelector('.attend-toggle');
+        const hVal = parseFloat(existing.hifz || '0') || 0;
+        const mVal = parseFloat(existing.muragaa || '0') || 0;
+
+        if (hifzInput) hifzInput.value = hVal ? String(hVal) : '';
+        if (murInput) murInput.value = mVal ? String(mVal) : '';
+
+        if (hVal !== 0 || mVal !== 0) {
+          row.dataset.attended = '1';
+          row.classList.add('attended');
+          if (attendBtn) attendBtn.textContent = 'حاضر';
+        } else {
+          row.dataset.attended = '1';
+          row.classList.add('attended');
+          if (attendBtn) attendBtn.textContent = 'حضور فقط';
+        }
+      }
+
       if (showOnlyWithValues) {
-        const existing = findExistingEntry(stu.id, selectedTeacherId, currentDate, pending);
         if (!existing) {
           return;
         }
       }
+
       studentsListEl.appendChild(row);
       count += 1;
     });
@@ -268,6 +331,7 @@
   }
 
   function findExistingEntry(studentId, teacherId, date, pendingEntries) {
+    if (!teacherId) return null;
     const allPending = pendingEntries || getPendingEntries();
     const fromPending = allPending.find(
       (p) =>
@@ -276,7 +340,22 @@
         p.hijri_date === date
     );
     if (fromPending) return fromPending;
-    return null;
+
+    const fromStored = allProgressRows.find(
+      (r) =>
+        String(r.student_id) === String(studentId) &&
+        String(r.teacher_id) === String(teacherId) &&
+        r.hijri_date === date
+    );
+    if (!fromStored) return null;
+    return {
+      student_id: parseInt(fromStored.student_id || studentId, 10),
+      teacher_id: parseInt(fromStored.teacher_id || teacherId, 10),
+      hifz: fromStored.hifz,
+      muragaa: fromStored.muragaa,
+      hijri_date: fromStored.hijri_date,
+      notes: fromStored.notes || '',
+    };
   }
 
   function recalcPresentCount() {
@@ -427,6 +506,14 @@
             studentDefaultTeacher[sid] = bestTid;
           }
         });
+
+        const overrides = getStudentTeacherOverrides();
+        Object.keys(overrides || {}).forEach((sidStr) => {
+          const sid = parseInt(sidStr, 10);
+          const tid = parseInt(overrides[sidStr], 10);
+          if (!sid || !tid) return;
+          studentDefaultTeacher[sid] = tid;
+        });
       } catch (err) {
         console.warn('تعذر تحميل بيانات الطلاب/المعلمين من المستودع، سيتم استخدام النسخة المخزنة محليًا إن وجدت.', err);
         showToast('تعذر الوصول للمستودع، سيتم استخدام البيانات المخزنة محليًا إن وجدت.');
@@ -479,6 +566,15 @@
     // Render teacher buttons (chips) instead of dropdown UI
     if (teacherButtonsEl) {
       teacherButtonsEl.innerHTML = '';
+
+      const allBtn = document.createElement('button');
+      allBtn.type = 'button';
+      allBtn.dataset.teacherId = '';
+      allBtn.className =
+        'touch-target px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap border border-slate-200 bg-white text-slate-700 hover:bg-emerald-50';
+      allBtn.textContent = 'الكل';
+      teacherButtonsEl.appendChild(allBtn);
+
       teachers.forEach((t) => {
         const btn = document.createElement('button');
         btn.type = 'button';
@@ -822,6 +918,59 @@
       });
 
       studentsListEl.addEventListener('click', (e) => {
+        const teacherChip = e.target.closest('.student-teacher-chip');
+        if (teacherChip) {
+          const sid = parseInt(teacherChip.dataset.studentId || '0', 10);
+          if (!sid) return;
+
+          const select = document.createElement('select');
+          select.className =
+            'student-teacher-select text-[10px] px-2 py-0.5 rounded-full border border-emerald-400 bg-white text-slate-800';
+
+          const noneOption = document.createElement('option');
+          noneOption.value = '';
+          noneOption.textContent = 'غير محددة';
+          select.appendChild(noneOption);
+
+          teachers.forEach((t) => {
+            const opt = document.createElement('option');
+            opt.value = String(t.id);
+            opt.textContent = t.full_name;
+            select.appendChild(opt);
+          });
+
+          const currentTid = studentDefaultTeacher[sid];
+          if (currentTid) {
+            select.value = String(currentTid);
+          }
+
+          teacherChip.replaceWith(select);
+          select.focus();
+
+          const finalize = () => {
+            const val = select.value;
+            const overrides = getStudentTeacherOverrides();
+            if (val) {
+              const tid = parseInt(val, 10);
+              if (tid) {
+                overrides[String(sid)] = tid;
+                studentDefaultTeacher[sid] = tid;
+              }
+            } else {
+              delete overrides[String(sid)];
+              delete studentDefaultTeacher[sid];
+            }
+            saveStudentTeacherOverrides(overrides);
+            renderStudents();
+            renderStudentStats();
+          };
+
+          select.addEventListener('change', finalize, { once: true });
+          select.addEventListener('blur', finalize, { once: true });
+
+          return;
+        }
+
         const btn = e.target.closest('.attend-toggle');
         if (!btn) return;
         const row = btn.closest('.student-row');
@@ -853,19 +1002,6 @@
         ? 'إظهار جميع الطلاب'
         : 'إخفاء الطلاب بدون بيانات';
       renderStudents();
-    });
-
-    if (clearDayBtn) clearDayBtn.addEventListener('click', () => {
-      const rows = Array.from(studentsListEl.querySelectorAll('.student-row'));
-      rows.forEach((row) => {
-        const h = row.querySelector('.input-hifz');
-        const m = row.querySelector('.input-muragaa');
-        if (h) h.value = '';
-        if (m) m.value = '';
-        row.classList.remove('attended');
-      });
-      recalcPresentCount();
-      showToast('تم مسح القيم الظاهرة لهذا اليوم (محليًا فقط).');
     });
 
     if (loadDayBtn) loadDayBtn.addEventListener('click', () => {
@@ -1177,6 +1313,10 @@
     }
 
     items.forEach(({ student, hifz, muragaa, days }) => {
+      // Round totals to nearest 0.5 and avoid long floating numbers
+      const roundedHifz = Math.round(hifz * 2) / 2;
+      const roundedMur = Math.round(muragaa * 2) / 2;
+
       const row = document.createElement('div');
       row.className =
         'flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-white';
@@ -1198,12 +1338,12 @@
       const chipHifz = document.createElement('div');
       chipHifz.className =
         'px-2 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100';
-      chipHifz.textContent = `حفظ: ${hifz}`;
+      chipHifz.textContent = `حفظ: ${roundedHifz}`;
 
       const chipMur = document.createElement('div');
       chipMur.className =
         'px-2 py-1 rounded-full bg-sky-50 text-sky-700 border border-sky-100';
-      chipMur.textContent = `مراجعة: ${muragaa}`;
+      chipMur.textContent = `مراجعة: ${roundedMur}`;
 
       stats.appendChild(chipHifz);
       stats.appendChild(chipMur);
