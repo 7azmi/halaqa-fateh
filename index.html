@@ -16,33 +16,49 @@
     .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
   </style>
 </head>
-<body class="bg-slate-900 text-slate-50 pb-24">
+<body class="bg-slate-50 text-slate-800 pb-24">
   <!-- Header -->
   <header class="fixed top-0 left-0 right-0 bg-emerald-600 text-white z-40 shadow-lg">
     <div class="max-w-3xl mx-auto px-4 py-3 flex justify-between items-center">
       <div>
         <h1 class="text-lg font-bold">حلقة الفتح</h1>
         <div class="text-emerald-100 text-xs flex items-center gap-2">
-          <span id="connection-status">جاري التحقق من الاتصال...</span>
+          <span id="hijri-date-header">جاري تحميل التاريخ...</span>
+          <button id="btn-today" class="bg-emerald-700 hover:bg-emerald-800 px-2 py-0.5 rounded text-[10px] transition-colors">
+            اليوم
+          </button>
         </div>
       </div>
-      <div class="flex gap-2 bg-emerald-700/50 p-1 rounded-lg text-xs">
-        <button id="btn-view-daily" class="px-3 py-1.5 rounded-md font-medium bg-white text-emerald-700 shadow-sm">
-          اليومية
-        </button>
-        <button id="btn-view-students" class="px-3 py-1.5 rounded-md font-medium text-emerald-100 hover:bg-emerald-600/50">
-          الطلاب
-        </button>
+      <div class="flex items-center gap-3">
+        <div id="connection-status" class="hidden text-[11px] px-2 py-1 rounded-full bg-emerald-700/60">
+          بدون إنترنت - يتم الحفظ محليًا
+        </div>
+        <div class="flex gap-2 bg-emerald-700/50 p-1 rounded-lg text-xs">
+          <button id="btn-view-daily" class="px-3 py-1.5 rounded-md font-medium bg-white text-emerald-700 shadow-sm">
+            اليومية
+          </button>
+          <button id="btn-view-students" class="px-3 py-1.5 rounded-md font-medium text-emerald-100 hover:bg-emerald-600/50">
+            الطلاب
+          </button>
+          <button
+            id="open-settings-btn"
+            class="px-2 py-1 rounded-md text-emerald-100 hover:bg-emerald-600/70 flex items-center justify-center"
+            aria-label="الإعدادات"
+            title="الإعدادات"
+          >
+            ⚙️
+          </button>
+        </div>
       </div>
     </div>
   </header>
 
-  <main class="max-w-3xl mx-auto px-4 pt-24">
+  <main class="max-w-3xl mx-auto px-4 pt-24" id="main-root">
     <!-- Auth / setup view -->
     <section id="auth-view" class="view active slide-enter">
-      <div class="glass-panel rounded-2xl p-5 shadow-xl border border-slate-200/60 bg-slate-900/40">
+      <div class="glass-panel rounded-2xl p-5 shadow-xl border border-slate-200/80 bg-white">
         <h2 class="text-base font-semibold mb-1">إعداد الأداة للمرة الأولى</h2>
-        <p class="text-xs text-slate-300 mb-4">
+        <p class="text-xs text-slate-600 mb-4">
           سيتم حفظ بيانات الحلقة في المستودع الخاص بها، ويتم تخزين رمز الدخول في هذا الجهاز فقط.
         </p>
 
@@ -55,9 +71,9 @@
               autocomplete="off"
               placeholder="أدخل الرمز هنا"
               required
-              class="w-full bg-slate-900/70 border border-slate-600 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              class="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
             >
-            <p class="text-[11px] text-slate-400 mt-1.5">
+            <p class="text-[11px] text-slate-500 mt-1.5">
               يتم استخدام هذا الرمز لحفظ بياناتك في المستودع بشكل آمن، ولا يغادر جهازك.
             </p>
           </div>
@@ -71,81 +87,102 @@
 
     <!-- Main data-entry view -->
     <section id="app-view" class="view hidden slide-enter space-y-4">
-      <!-- Date & teacher controls -->
-      <section class="glass-panel rounded-2xl p-4 shadow-xl border border-slate-700/60 bg-slate-900/70 sticky top-20 z-30">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <div class="text-[11px] text-slate-400 mb-0.5">اليوم المحدد</div>
-            <div class="flex items-baseline gap-1.5">
-              <span class="text-lg font-semibold text-emerald-300" id="hijri-day-label">اليوم</span>
-              <span class="text-[11px] text-slate-400" id="hijri-date-label">التاريخ الهجري</span>
+      <!-- Daily input view -->
+      <div id="daily-view" class="space-y-4">
+        <!-- Date & teacher controls -->
+        <section class="glass-panel rounded-2xl p-4 shadow-sm border border-slate-200 bg-white sticky top-20 z-30">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="text-[11px] text-slate-500 mb-0.5">اليوم المحدد</div>
+              <div class="flex items-baseline gap-1.5">
+                <span class="text-lg font-semibold text-emerald-700" id="hijri-day-label">اليوم</span>
+                <span class="text-[11px] text-slate-500" id="hijri-date-label">التاريخ الهجري</span>
+              </div>
             </div>
+            <button id="load-day-btn" class="px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 text-[11px] font-medium hover:bg-emerald-200">
+              تحميل بيانات اليوم
+            </button>
           </div>
-          <button id="load-day-btn" class="px-3 py-1.5 rounded-xl bg-slate-800 text-[11px] text-slate-100 hover:bg-slate-700">
-            تحميل بيانات اليوم
-          </button>
-        </div>
 
         <div class="grid grid-cols-3 gap-2 mb-3">
-          <input id="hijri-day" type="number" min="1" max="30" placeholder="اليوم"
-                 class="bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-          <input id="hijri-month" type="number" min="1" max="12" placeholder="الشهر"
-                 class="bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-          <input id="hijri-year" type="number" min="1400" max="1600" placeholder="السنة"
-                 class="bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-center text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-        </div>
-
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex-1">
-            <label for="teacher-select" class="block text-[11px] font-medium text-slate-300 mb-1">المعلم</label>
-            <select id="teacher-select"
-                    class="w-full bg-slate-900/80 border border-slate-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent">
-              <option value="">اختر المعلم</option>
-            </select>
+          <div class="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-2 py-1.5">
+            <button id="hijri-day-prev" class="text-slate-600 hover:text-emerald-600 px-1.5 py-1 text-lg">−</button>
+            <input id="hijri-day" type="number" min="1" max="30" readonly
+                   class="w-12 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none">
+            <button id="hijri-day-next" class="text-slate-600 hover:text-emerald-600 px-1.5 py-1 text-lg">+</button>
           </div>
-          <button id="clear-day-btn" class="text-[11px] text-slate-300 hover:text-slate-100 px-2 py-1 rounded-lg">
-            مسح القيم المعروضة
-          </button>
-        </div>
-      </section>
-
-      <!-- Students list -->
-      <section class="glass-panel rounded-2xl p-3 shadow-xl border border-slate-800 bg-slate-900/70">
-        <header class="flex items-center justify-between mb-2">
-          <div class="flex flex-col">
-            <span class="text-sm font-semibold">قائمة الطلاب</span>
-            <span id="students-count-label" class="text-[11px] text-slate-400">عدد الطلاب: 0</span>
+          <div class="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-2 py-1.5">
+            <button id="hijri-month-prev" class="text-slate-600 hover:text-emerald-600 px-1.5 py-1 text-lg">−</button>
+            <input id="hijri-month" type="number" min="1" max="12" readonly
+                   class="w-12 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none">
+            <button id="hijri-month-next" class="text-slate-600 hover:text-emerald-600 px-1.5 py-1 text-lg">+</button>
           </div>
-          <button id="toggle-empty-btn" class="px-3 py-1.5 rounded-full text-[11px] bg-slate-800 text-slate-100 hover:bg-slate-700">
-            إخفاء الطلاب بدون بيانات
-          </button>
-        </header>
-
-        <div id="students-list" class="no-scrollbar max-h-[60vh] overflow-y-auto space-y-2">
-          <!-- Filled dynamically -->
+          <div class="flex items-center justify-between bg-white border border-slate-200 rounded-xl px-2 py-1.5">
+            <button id="hijri-year-prev" class="text-slate-600 hover:text-emerald-600 px-1.5 py-1 text-lg">−</button>
+            <input id="hijri-year" type="number" min="1440" max="1500" readonly
+                   class="w-16 text-center text-sm font-semibold bg-transparent border-0 focus:outline-none">
+            <button id="hijri-year-next" class="text-slate-600 hover:text-emerald-600 px-1.5 py-1 text-lg">+</button>
+          </div>
         </div>
-      </section>
+
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex-1">
+              <div class="block text-[11px] font-medium text-slate-600 mb-1">اختيار الحلقة</div>
+              <div id="teacher-buttons" class="flex gap-2 overflow-x-auto no-scrollbar py-1"></div>
+              <select id="teacher-select" class="hidden">
+                <option value="">اختر المعلم</option>
+              </select>
+            </div>
+            <button id="clear-day-btn" class="text-[11px] text-slate-500 hover:text-slate-900 px-2 py-1 rounded-lg">
+              مسح القيم المعروضة
+            </button>
+          </div>
+        </section>
+
+        <!-- Students list -->
+        <section class="glass-panel rounded-2xl p-3 shadow-xl border border-slate-200 bg-white">
+          <header class="flex items-center justify-between mb-2">
+            <div class="flex flex-col">
+              <span class="text-sm font-semibold">قائمة الطلاب</span>
+              <span id="students-count-label" class="text-[11px] text-slate-400">عدد الطلاب: 0</span>
+            </div>
+            <button id="toggle-empty-btn" class="px-3 py-1.5 rounded-full text-[11px] bg-slate-100 text-slate-700 hover:bg-slate-200">
+              إخفاء الطلاب بدون بيانات
+            </button>
+          </header>
+
+          <div id="students-list" class="no-scrollbar max-h-[60vh] overflow-y-auto space-y-2">
+            <!-- Filled dynamically -->
+          </div>
+        </section>
+      </div>
+
+      <!-- Students statistics view -->
+      <div id="students-stats-view" class="space-y-4 hidden">
+        <section class="glass-panel rounded-2xl p-4 shadow-sm border border-slate-200 bg-white">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <div class="text-[11px] text-slate-500 mb-0.5">إحصائيات الطلاب</div>
+              <div class="text-sm font-semibold text-emerald-700">
+                نظرة عامة على الأداء عبر الأيام
+              </div>
+            </div>
+          </div>
+
+          <div id="students-stats-list" class="no-scrollbar max-h-[60vh] overflow-y-auto space-y-2 text-sm text-slate-700">
+            <!-- Filled dynamically -->
+          </div>
+        </section>
+      </div>
     </section>
   </main>
 
   <!-- Footer summary & actions -->
   <footer class="fixed inset-x-0 bottom-0 z-40">
     <div class="max-w-3xl mx-auto px-3 pb-3">
-      <div class="glass-panel rounded-2xl px-3 py-2.5 shadow-2xl border border-slate-800 bg-slate-900/95 flex flex-col gap-2">
-        <div class="flex items-center justify-between text-[11px] text-slate-300">
+      <div class="glass-panel rounded-2xl px-3 py-2.5 shadow-2xl border border-slate-200 bg-white flex flex-col gap-2">
+        <div class="flex items-center justify-start text-[11px] text-slate-600">
           <span id="present-count">الحاضرون: 0</span>
-          <span id="pending-count">سجلات غير مُرسَلة: 0</span>
-        </div>
-        <div class="flex gap-2">
-          <button id="save-local-btn" class="flex-1 inline-flex justify-center items-center rounded-2xl bg-slate-800 text-slate-100 text-sm py-2.5">
-            حفظ محليًا
-          </button>
-          <button id="sync-btn" class="flex-1 inline-flex justify-center items-center rounded-2xl bg-gradient-to-l from-emerald-500 to-cyan-400 text-slate-900 text-sm font-semibold py-2.5 shadow-lg shadow-emerald-500/40">
-            مزامنة البيانات
-          </button>
-        </div>
-        <div class="flex justify-between items-center text-[11px] text-slate-400">
-          <button id="open-settings-btn" class="hover:text-slate-100">إعدادات الاتصال</button>
         </div>
       </div>
     </div>
