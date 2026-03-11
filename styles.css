@@ -26,6 +26,7 @@ html {
   font-size: 0.85rem;
   border-bottom: 1px solid #e2e8f0;
   background: #fff;
+  overflow-x: hidden;
 }
 
 .student-row:nth-child(even) {
@@ -45,11 +46,21 @@ html {
 .student-name {
   font-weight: 600;
   color: #1e293b;
+  word-break: break-word;
 }
 
 .student-extra {
   font-size: 0.75rem;
   color: #64748b;
+}
+
+.attend-toggle {
+  font-size: 0.7rem;
+  padding-inline: 0.55rem;
+  padding-block: 0.2rem;
+  background: #f8fafc;
+  color: #6b7280;
+  border-color: #cbd5f5;
 }
 
 .student-inputs label {
@@ -69,6 +80,10 @@ html {
   outline: 2px solid #10b981;
   outline-offset: 0;
   border-color: transparent;
+}
+
+#students-list {
+  overflow-x: hidden;
 }
 
 .student-row.attended {

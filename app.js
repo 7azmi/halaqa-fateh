@@ -6,6 +6,8 @@
     students: 'hf_students_csv_v1',
     teachers: 'hf_teachers_csv_v1',
     lastTeacherId: 'hf_last_teacher_id',
+    archivedStudents: 'hf_archived_students_v1',
+    archivedTeachers: 'hf_archived_teachers_v1',
   };
 
   const DEFAULT_OWNER = '7azmi';
@@ -23,6 +25,7 @@
 
   const authForm = document.getElementById('auth-form');
   const tokenInput = document.getElementById('token-input');
+  const backToAppBtn = document.getElementById('back-to-app-btn');
 
   const teacherSelect = document.getElementById('teacher-select');
   const teacherButtonsEl = document.getElementById('teacher-buttons');
@@ -99,16 +102,16 @@
     localStorage.setItem(LS_KEYS.pending, JSON.stringify(entries));
   }
 
-  function getCurrentHijriDate() {
-    const now = new Date();
+  let currentRealDate = new Date();
+
+  function getHijriFromDate(date) {
     try {
-      // Use latin digits for easier parsing, but Islamic calendar for accuracy
       const formatter = new Intl.DateTimeFormat('en-u-ca-islamic-nu-latn', {
         day: 'numeric',
         month: 'numeric',
         year: 'numeric',
       });
-      const parts = formatter.formatToParts(now);
+      const parts = formatter.formatToParts(date);
       const getPart = (type, fallback) => {
         const value = parts.find((p) => p.type === type)?.value;
         const n = value != null ? parseInt(value, 10) : NaN;
@@ -119,8 +122,24 @@
       const year = getPart('year', 1447);
       return { day, month, year };
     } catch (err) {
-      console.error('Failed to get Hijri date:', err);
+      console.error('Failed to get Hijri date for', date, err);
       return { day: 1, month: 1, year: 1447 };
+    }
+  }
+
+  function getCurrentHijriDate() {
+    return getHijriFromDate(new Date());
+  }
+
+  function getHijriWeekdayLabel(date) {
+    try {
+      const formatter = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
+        weekday: 'long',
+      });
+      return formatter.format(date || new Date());
+    } catch (err) {
+      console.error('Failed to get Hijri weekday for', date, err);
+      return '';
     }
   }
 
@@ -133,7 +152,6 @@
     
     if (!currentDay || !currentMonth || !currentYear) {
       const d = getCurrentHijriDate();
-      console.log('Initializing with Hijri date:', d);
       hijriDayInput.value = String(d.day);
       hijriMonthInput.value = String(d.month);
       hijriYearInput.value = String(d.year);
@@ -165,7 +183,8 @@
     nameEl.textContent = stu.full_name;
     const extraEl = document.createElement('div');
     extraEl.className = 'student-extra';
-    extraEl.textContent = `سنة الميلاد: ${stu.hijri_birth_year || 'غير محددة'}`;
+    const ageLabel = getStudentAgeLabel(stu);
+    extraEl.textContent = ageLabel;
     nameCol.appendChild(nameEl);
     nameCol.appendChild(extraEl);
 
@@ -173,7 +192,7 @@
     attendBtn.type = 'button';
     attendBtn.className =
       'attend-toggle inline-flex items-center justify-center mt-1 px-2 py-0.5 rounded-full text-[11px] border border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100';
-    attendBtn.textContent = 'حضور';
+    attendBtn.textContent = 'حضور فقط';
     nameCol.appendChild(attendBtn);
 
     const hifzCol = document.createElement('div');
@@ -419,15 +438,32 @@
     }
     const sParsed = parseCsv(studentsCsv);
     const tParsed = parseCsv(teachersCsv);
-    students = sParsed.rows.map((r) => ({
-      id: parseInt(r.id, 10),
-      full_name: r.full_name,
-      hijri_birth_year: r.hijri_birth_year || '',
-    }));
-    teachers = tParsed.rows.map((r) => ({
-      id: parseInt(r.id, 10),
-      full_name: r.full_name,
-    }));
+
+    const archivedStudentIds = new Set(
+      (safeJSONParse(localStorage.getItem(LS_KEYS.archivedStudents), []) || []).map((id) =>
+        parseInt(id, 10)
+      )
+    );
+    const archivedTeacherIds = new Set(
+      (safeJSONParse(localStorage.getItem(LS_KEYS.archivedTeachers), []) || []).map((id) =>
+        parseInt(id, 10)
+      )
+    );
+
+    students = sParsed.rows
+      .map((r) => ({
+        id: parseInt(r.id, 10),
+        full_name: r.full_name,
+        hijri_birth_year: r.hijri_birth_year || '',
+      }))
+      .filter((s) => !archivedStudentIds.has(s.id));
+
+    teachers = tParsed.rows
+      .map((r) => ({
+        id: parseInt(r.id, 10),
+        full_name: r.full_name,
+      }))
+      .filter((t) => !archivedTeacherIds.has(t.id));
     if (teacherSelect) {
       teacherSelect.innerHTML = '<option value="">اختر المعلم</option>';
       teachers.forEach((t) => {
@@ -456,6 +492,7 @@
     }
     renderStudents();
     renderStudentStats();
+    renderSettingsManagement();
   }
 
   function collectFormToPending() {
@@ -632,6 +669,20 @@
       showToast('تم حفظ الإعدادات. يمكنك الآن البدء في إدخال بيانات الطلاب.');
     });
 
+    if (backToAppBtn) {
+      backToAppBtn.addEventListener('click', () => {
+        const cfg = getConfig();
+        if (!cfg.token) {
+          showToast('الرجاء إدخال رمز الدخول أولاً.');
+          return;
+        }
+        switchToAppView();
+        if (!students.length || !teachers.length) {
+          loadStudentsAndTeachers();
+        }
+      });
+    }
+
     if (teacherSelect) {
       teacherSelect.addEventListener('change', () => {
         const val = teacherSelect.value;
@@ -663,67 +714,99 @@
       });
     });
 
-    // Date navigation buttons
-    const hijriDayPrev = document.getElementById('hijri-day-prev');
-    const hijriDayNext = document.getElementById('hijri-day-next');
-    const hijriMonthPrev = document.getElementById('hijri-month-prev');
-    const hijriMonthNext = document.getElementById('hijri-month-next');
-    const hijriYearPrev = document.getElementById('hijri-year-prev');
-    const hijriYearNext = document.getElementById('hijri-year-next');
+    const datePrevBtn = document.getElementById('date-prev-btn');
+    const dateNextBtn = document.getElementById('date-next-btn');
+    const datePillButton = document.getElementById('hijri-date-container');
+    const datePanel = document.getElementById('date-picker-panel');
+    const pickerMonth = document.getElementById('picker-month');
+    const pickerYear = document.getElementById('picker-year');
+    const pickerApply = document.getElementById('picker-apply');
 
-    if (hijriDayPrev) hijriDayPrev.addEventListener('click', () => {
-      const val = parseInt(hijriDayInput.value || '1', 10);
-      hijriDayInput.value = Math.max(1, val - 1);
+    function setDateFromReal(date) {
+      currentRealDate = date;
+      const d = getHijriFromDate(date);
+      if (hijriDayInput) hijriDayInput.value = String(d.day);
+      if (hijriMonthInput) hijriMonthInput.value = String(d.month);
+      if (hijriYearInput) hijriYearInput.value = String(d.year);
       updateHijriLabels();
       renderStudents();
-    });
+    }
 
-    if (hijriDayNext) hijriDayNext.addEventListener('click', () => {
-      const val = parseInt(hijriDayInput.value || '1', 10);
-      hijriDayInput.value = Math.min(30, val + 1);
-      updateHijriLabels();
-      renderStudents();
-    });
+    if (datePrevBtn) {
+      datePrevBtn.addEventListener('click', () => {
+        const d = new Date(currentRealDate.getTime());
+        d.setDate(d.getDate() - 1);
+        setDateFromReal(d);
+      });
+    }
 
-    if (hijriMonthPrev) hijriMonthPrev.addEventListener('click', () => {
-      const val = parseInt(hijriMonthInput.value || '1', 10);
-      if (val > 1) {
-        hijriMonthInput.value = val - 1;
-      } else {
-        hijriMonthInput.value = 12;
-        const year = parseInt(hijriYearInput.value || '1447', 10);
-        hijriYearInput.value = year - 1;
-      }
-      updateHijriLabels();
-      renderStudents();
-    });
+    if (dateNextBtn) {
+      dateNextBtn.addEventListener('click', () => {
+        const d = new Date(currentRealDate.getTime());
+        d.setDate(d.getDate() + 1);
+        setDateFromReal(d);
+      });
+    }
 
-    if (hijriMonthNext) hijriMonthNext.addEventListener('click', () => {
-      const val = parseInt(hijriMonthInput.value || '1', 10);
-      if (val < 12) {
-        hijriMonthInput.value = val + 1;
-      } else {
-        hijriMonthInput.value = 1;
-        const year = parseInt(hijriYearInput.value || '1447', 10);
-        hijriYearInput.value = year + 1;
-      }
-      updateHijriLabels();
-      renderStudents();
-    });
+    if (datePillButton && datePanel && pickerMonth && pickerYear) {
+      datePillButton.addEventListener('click', () => {
+        const isHidden = datePanel.classList.contains('hidden');
+        if (isHidden) {
+          // Initialize selects with current values
+          if (hijriMonthInput && hijriMonthInput.value) {
+            pickerMonth.value = String(parseInt(hijriMonthInput.value, 10));
+          }
+          if (hijriYearInput && hijriYearInput.value) {
+            pickerYear.value = String(parseInt(hijriYearInput.value, 10));
+          }
+          datePanel.classList.remove('hidden');
+          datePillButton.classList.add('invisible');
+        } else {
+          datePanel.classList.add('hidden');
+          datePillButton.classList.remove('invisible');
+        }
+      });
+    }
 
-    if (hijriYearPrev) hijriYearPrev.addEventListener('click', () => {
-      const val = parseInt(hijriYearInput.value || '1447', 10);
-      hijriYearInput.value = Math.max(1440, val - 1);
-      updateHijriLabels();
-      renderStudents();
-    });
+    if (pickerApply && pickerMonth && pickerYear) {
+      pickerApply.addEventListener('click', () => {
+        const targetMonth = parseInt(pickerMonth.value, 10);
+        const targetYear = parseInt(pickerYear.value, 10);
+        if (!targetMonth || !targetYear) {
+          datePanel.classList.add('hidden');
+          return;
+        }
 
-    if (hijriYearNext) hijriYearNext.addEventListener('click', () => {
-      const val = parseInt(hijriYearInput.value || '1447', 10);
-      hijriYearInput.value = Math.min(1500, val + 1);
-      updateHijriLabels();
-      renderStudents();
-    });
+        // Try to find a real date whose Hijri calendar is the first of this month/year
+        const base = new Date();
+        let found = null;
+        for (let offset = -730; offset <= 730; offset += 1) {
+          const d = new Date(base.getTime());
+          d.setDate(d.getDate() + offset);
+          const h = getHijriFromDate(d);
+          if (h.year === targetYear && h.month === targetMonth && h.day === 1) {
+            found = d;
+            break;
+          }
+        }
+
+        if (found) {
+          setDateFromReal(found);
+        } else {
+          // Fallback: just update hidden inputs and UI
+          if (hijriDayInput) hijriDayInput.value = '1';
+          if (hijriMonthInput) hijriMonthInput.value = String(targetMonth);
+          if (hijriYearInput) hijriYearInput.value = String(targetYear);
+          updateHijriLabels();
+          renderStudents();
+        }
+
+        datePanel.classList.add('hidden');
+        if (datePillButton) {
+          datePillButton.classList.remove('invisible');
+        }
+      });
+    }
 
     if (studentsListEl) {
       studentsListEl.addEventListener('input', (e) => {
@@ -791,24 +874,73 @@
       showToast('تم تحديث القيم بناءً على اليوم المختار.');
     });
 
-    if (openSettingsBtn) openSettingsBtn.addEventListener('click', () => {
-      switchToAuthView();
-      initConfigUI();
-    });
+    if (openSettingsBtn) {
+      openSettingsBtn.addEventListener('click', () => {
+        const cfg = getConfig();
+        initConfigUI();
+        if (!cfg.token) {
+          switchToAuthView();
+          showToast('أدخل رمز الدخول أولاً لتهيئة الاتصال.');
+          return;
+        }
+        switchToAuthView();
+        if (!students.length || !teachers.length) {
+          loadStudentsAndTeachers();
+        } else {
+          renderSettingsManagement();
+        }
+      });
+    }
+
+    const settingsPanel = document.getElementById('auth-view');
+    if (settingsPanel) {
+      settingsPanel.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn || !btn.dataset || !btn.dataset.type || !btn.dataset.id) return;
+        const type = btn.dataset.type;
+        const id = btn.dataset.id;
+        if (type !== 'student' && type !== 'teacher') return;
+
+        if (type === 'student') {
+          const archived = new Set(
+            safeJSONParse(localStorage.getItem(LS_KEYS.archivedStudents), []) || []
+          );
+          if (archived.has(id)) {
+            archived.delete(id);
+          } else {
+            archived.add(id);
+          }
+          localStorage.setItem(
+            LS_KEYS.archivedStudents,
+            JSON.stringify(Array.from(archived))
+          );
+        } else if (type === 'teacher') {
+          const archived = new Set(
+            safeJSONParse(localStorage.getItem(LS_KEYS.archivedTeachers), []) || []
+          );
+          if (archived.has(id)) {
+            archived.delete(id);
+          } else {
+            archived.add(id);
+          }
+          localStorage.setItem(
+            LS_KEYS.archivedTeachers,
+            JSON.stringify(Array.from(archived))
+          );
+        }
+
+        loadStudentsAndTeachers();
+      });
+    }
 
     if (todayBtn) {
       todayBtn.addEventListener('click', () => {
-        const d = getCurrentHijriDate();
-        console.log('Setting today\'s date:', d);
-        if (hijriDayInput) {
-          hijriDayInput.value = String(d.day);
-        }
-        if (hijriMonthInput) {
-          hijriMonthInput.value = String(d.month);
-        }
-        if (hijriYearInput) {
-          hijriYearInput.value = String(d.year);
-        }
+        const realToday = new Date();
+        currentRealDate = realToday;
+        const d = getHijriFromDate(realToday);
+        if (hijriDayInput) hijriDayInput.value = String(d.day);
+        if (hijriMonthInput) hijriMonthInput.value = String(d.month);
+        if (hijriYearInput) hijriYearInput.value = String(d.year);
         updateHijriLabels();
         setHeaderView('daily');
         renderStudents();
@@ -833,8 +965,13 @@
     if (document.getElementById('hijri-day-label')) {
       document.getElementById('hijri-day-label').textContent = `اليوم ${parseInt(day, 10)}`;
     }
-    if (document.getElementById('hijri-date-label')) {
-      document.getElementById('hijri-date-label').textContent = date;
+    const pill = document.getElementById('hijri-date-pill');
+    if (pill) {
+      pill.textContent = date;
+    }
+    const weekdaySpan = document.getElementById('hijri-weekday-pill');
+    if (weekdaySpan) {
+      weekdaySpan.textContent = getHijriWeekdayLabel(currentRealDate);
     }
   }
 
@@ -843,9 +980,10 @@
     const selectedId = teacherSelect.value;
     Array.from(teacherButtonsEl.querySelectorAll('button[data-teacher-id]')).forEach((btn) => {
       if (btn.dataset.teacherId === selectedId) {
-        btn.classList.add('bg-emerald-600', 'text-white', 'border-emerald-600');
+        btn.classList.remove('bg-white', 'text-slate-700', 'border-slate-200');
+        btn.classList.add('bg-emerald-100', 'text-emerald-800', 'border-emerald-500');
       } else {
-        btn.classList.remove('bg-emerald-600', 'text-white', 'border-emerald-600');
+        btn.classList.remove('bg-emerald-100', 'text-emerald-800', 'border-emerald-500');
         btn.classList.add('bg-white', 'text-slate-700', 'border-slate-200');
       }
     });
@@ -870,6 +1008,96 @@
         studentsStatsView.classList.remove('hidden');
         renderStudentStats();
       }
+    }
+  }
+
+  function getStudentAgeLabel(stu) {
+    if (!stu.hijri_birth_year) {
+      return 'العمر: غير محدد';
+    }
+    const birthYear = parseInt(stu.hijri_birth_year, 10);
+    if (!birthYear) {
+      return 'العمر: غير محدد';
+    }
+    const nowHijri = getCurrentHijriDate();
+    const age = nowHijri.year - birthYear;
+    if (age < 0 || age > 80) {
+      return 'العمر: غير محدد';
+    }
+    return `العمر: ${age} سنة`;
+  }
+
+  function renderSettingsManagement() {
+    const studentsContainer = document.getElementById('settings-students-list');
+    const teachersContainer = document.getElementById('settings-teachers-list');
+    if (!studentsContainer || !teachersContainer) return;
+
+    const archivedStudents = new Set(
+      safeJSONParse(localStorage.getItem(LS_KEYS.archivedStudents), []) || []
+    );
+    const archivedTeachers = new Set(
+      safeJSONParse(localStorage.getItem(LS_KEYS.archivedTeachers), []) || []
+    );
+
+    studentsContainer.innerHTML = '';
+    teachersContainer.innerHTML = '';
+
+    if (!students.length) {
+      const empty = document.createElement('div');
+      empty.className = 'text-[11px] text-slate-400';
+      empty.textContent = 'لا توجد بيانات طلاب بعد.';
+      studentsContainer.appendChild(empty);
+    } else {
+      students.forEach((s) => {
+        const row = document.createElement('div');
+        row.className =
+          'flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-white border border-slate-200';
+        const name = document.createElement('span');
+        name.textContent = s.full_name;
+        name.className = 'truncate';
+        const btn = document.createElement('button');
+        const isArchived = archivedStudents.has(String(s.id));
+        btn.dataset.type = 'student';
+        btn.dataset.id = String(s.id);
+        btn.className =
+          'px-2 py-0.5 rounded-full text-[10px] border ' +
+          (isArchived
+            ? 'bg-slate-100 text-slate-600 border-slate-300'
+            : 'bg-amber-50 text-amber-700 border-amber-200');
+        btn.textContent = isArchived ? 'مُؤرشف' : 'أرشفة';
+        row.appendChild(name);
+        row.appendChild(btn);
+        studentsContainer.appendChild(row);
+      });
+    }
+
+    if (!teachers.length) {
+      const empty = document.createElement('div');
+      empty.className = 'text-[11px] text-slate-400';
+      empty.textContent = 'لا توجد بيانات معلمين بعد.';
+      teachersContainer.appendChild(empty);
+    } else {
+      teachers.forEach((t) => {
+        const row = document.createElement('div');
+        row.className =
+          'flex items-center justify-between gap-2 px-2 py-1 rounded-lg bg-white border border-slate-200';
+        const name = document.createElement('span');
+        name.textContent = t.full_name;
+        name.className = 'truncate';
+        const btn = document.createElement('button');
+        const isArchived = archivedTeachers.has(String(t.id));
+        btn.dataset.type = 'teacher';
+        btn.dataset.id = String(t.id);
+        btn.className =
+          'px-2 py-0.5 rounded-full text-[10px] border ' +
+          (isArchived
+            ? 'bg-slate-100 text-slate-600 border-slate-300'
+            : 'bg-amber-50 text-amber-700 border-amber-200');
+        btn.textContent = isArchived ? 'مُؤرشف' : 'أرشفة';
+        row.appendChild(name);
+        row.appendChild(btn);
+        teachersContainer.appendChild(row);
+      });
     }
   }
 
