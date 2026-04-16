@@ -53,6 +53,9 @@ export function DailyEntry({
   );
   const [savingByStudent, setSavingByStudent] = useState<Set<number>>(() => new Set());
   const [filterOnlyAttended, setFilterOnlyAttended] = useState(false);
+  const [inputValues, setInputValues] = useState<Map<number, { hifz: string; muragaa: string }>>(
+    () => new Map()
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -72,6 +75,7 @@ export function DailyEntry({
   useEffect(() => {
     if (!teacherId) {
       setRowsByStudent(new Map());
+      setInputValues(new Map());
       return;
     }
     let cancelled = false;
@@ -82,8 +86,16 @@ export function DailyEntry({
       .then((rows: DailyProgressRow[]) => {
         if (cancelled) return;
         const map = new Map<number, DailyProgressRow>();
-        rows.forEach((row) => map.set(row.studentId, row));
+        const inputMap = new Map<number, { hifz: string; muragaa: string }>();
+        rows.forEach((row) => {
+          map.set(row.studentId, row);
+          inputMap.set(row.studentId, {
+            hifz: String(toNum(row.hifz)),
+            muragaa: String(toNum(row.muragaa)),
+          });
+        });
         setRowsByStudent(map);
+        setInputValues(inputMap);
       });
     return () => {
       cancelled = true;
@@ -121,6 +133,14 @@ export function DailyEntry({
         next.set(studentId, saved);
         return next;
       });
+      setInputValues((prev) => {
+        const next = new Map(prev);
+        next.set(studentId, {
+          hifz: String(toNum(saved.hifz)),
+          muragaa: String(toNum(saved.muragaa)),
+        });
+        return next;
+      });
     } finally {
       setSavingByStudent((prev) => {
         const next = new Set(prev);
@@ -147,7 +167,7 @@ export function DailyEntry({
             <div className="space-y-1.5">
               <Label>المعلم</Label>
               <Select
-                value={teacherId ? teacherId : null}
+                value={teacherId}
                 onValueChange={(v) => setTeacherId(v ?? "")}
               >
                 <SelectTrigger className="rounded-xl">
@@ -222,7 +242,15 @@ export function DailyEntry({
                           inputMode="decimal"
                           step="0.5"
                           min="0"
-                          defaultValue={hifz ? String(hifz) : ""}
+                          value={inputValues.get(s.id)?.hifz ?? ""}
+                          onChange={(e) => {
+                            setInputValues((prev) => {
+                              const next = new Map(prev);
+                              const current = next.get(s.id) ?? { hifz: "", muragaa: "" };
+                              next.set(s.id, { ...current, hifz: e.target.value });
+                              return next;
+                            });
+                          }}
                           onBlur={(e) => {
                             const v = toNum(e.target.value);
                             upsert(s.id, v, mur);
@@ -237,7 +265,15 @@ export function DailyEntry({
                           inputMode="decimal"
                           step="0.5"
                           min="0"
-                          defaultValue={mur ? String(mur) : ""}
+                          value={inputValues.get(s.id)?.muragaa ?? ""}
+                          onChange={(e) => {
+                            setInputValues((prev) => {
+                              const next = new Map(prev);
+                              const current = next.get(s.id) ?? { hifz: "", muragaa: "" };
+                              next.set(s.id, { ...current, muragaa: e.target.value });
+                              return next;
+                            });
+                          }}
                           onBlur={(e) => {
                             const v = toNum(e.target.value);
                             upsert(s.id, hifz, v);
