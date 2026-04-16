@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TeacherStatus {
+  active
+  inactive
+  archived
+}
+
+enum StudentState {
+  active
+  inactive
+  archived
+  graduated
+  transferred
+}
+
+model Teacher {
+  id        Int           @id @default(autoincrement())
+  fullName  String        @map("full_name")
+  status    TeacherStatus @default(active)
+  createdAt DateTime      @default(now()) @map("created_at")
+  updatedAt DateTime      @updatedAt @map("updated_at")
+
+  dailyProgress DailyProgress[]
+
+  @@map("teachers")
+}
+
+model Student {
+  id                 Int          @id @default(autoincrement())
+  fullName           String       @map("full_name")
+  hijriBirthYear     Int?         @map("hijri_birth_year")
+  hijriEnrollmentDate String?     @map("hijri_enrollment_date") // "DD/MM/YYYY" (Hijri)
+  notes              String?      
+  state              StudentState @default(active)
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
+
+  dailyProgress DailyProgress[]
+
+  @@map("students")
+}
+
+model DailyProgress {
+  id         String   @id @default(uuid())
+  studentId  Int      @map("student_id")
+  teacherId  Int      @map("teacher_id")
+  hijriDate  String   @map("hijri_date") // "DD/MM/YYYY"
+  hijriDay   Int      @map("hijri_day")
+  hijriMonth Int      @map("hijri_month")
+  hijriYear  Int      @map("hijri_year")
+  hifz       Decimal  @default(0.0) @db.Decimal(5, 1)
+  muragaa    Decimal  @default(0.0) @db.Decimal(5, 1)
+  notes      String?  
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  student Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Restrict)
+
+  @@unique([studentId, teacherId, hijriDate])
+  @@index([hijriYear, hijriMonth])
+  @@index([teacherId, hijriYear, hijriMonth])
+  @@index([studentId, hijriYear, hijriMonth])
+  @@map("daily_progress")
+}
