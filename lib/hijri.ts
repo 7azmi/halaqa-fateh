@@ -41,3 +41,9 @@ export function addDaysToGregorian(date: Date, days: number): Date {
   return result;
 }
 
+export function calculateAgeFromHijriYear(birthYear: number): number {
+  const now = new Date();
+  const currentHijri = getHijriFromGregorian(now);
+  return currentHijri.year - birthYear;
+}
+
