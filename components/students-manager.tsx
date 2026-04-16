@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { calculateAgeFromHijriYear } from "@/lib/hijri";
@@ -199,11 +198,9 @@ export function StudentsManager({ initial }: { initial: Student[] }) {
               الإجمالي: {filtered.length}
             </div>
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button className="rounded-lg" size="sm">
-                  + إضافة طالب
-                </Button>
-              </DialogTrigger>
+              <Button className="rounded-lg" size="sm" onClick={() => setAddOpen(true)}>
+                + إضافة طالب
+              </Button>
               <DialogContent className="rounded-xl">
                 <DialogHeader>
                   <DialogTitle>إضافة طالب جديد</DialogTitle>
@@ -248,17 +245,16 @@ export function StudentsManager({ initial }: { initial: Student[] }) {
 
                   <div className="flex gap-2">
                     <Dialog open={editingId === s.id} onOpenChange={(open) => open ? setEditingId(s.id) : setEditingId(null)}>
-                      <DialogTrigger asChild>
-                        <Button
-                          type="button"
-                          className="rounded-xl"
-                          variant="outline"
-                          size="sm"
-                          disabled={busy}
-                        >
-                          تعديل
-                        </Button>
-                      </DialogTrigger>
+                      <Button
+                        type="button"
+                        className="rounded-xl"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => setEditingId(s.id)}
+                      >
+                        تعديل
+                      </Button>
                       <DialogContent className="rounded-xl">
                         <DialogHeader>
                           <DialogTitle>تعديل الطالب</DialogTitle>

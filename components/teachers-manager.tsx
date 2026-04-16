@@ -11,7 +11,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -160,11 +159,9 @@ export function TeachersManager({ initial }: { initial: Teacher[] }) {
               الإجمالي: {filtered.length}
             </div>
             <Dialog open={addOpen} onOpenChange={setAddOpen}>
-              <DialogTrigger asChild>
-                <Button className="rounded-lg" size="sm">
-                  + إضافة معلم
-                </Button>
-              </DialogTrigger>
+              <Button className="rounded-lg" size="sm" onClick={() => setAddOpen(true)}>
+                + إضافة معلم
+              </Button>
               <DialogContent className="rounded-xl">
                 <DialogHeader>
                   <DialogTitle>إضافة معلم جديد</DialogTitle>
@@ -203,17 +200,16 @@ export function TeachersManager({ initial }: { initial: Teacher[] }) {
 
                   <div className="flex gap-2">
                     <Dialog open={editingId === t.id} onOpenChange={(open) => open ? setEditingId(t.id) : setEditingId(null)}>
-                      <DialogTrigger asChild>
-                        <Button
-                          type="button"
-                          className="rounded-xl"
-                          variant="outline"
-                          size="sm"
-                          disabled={busy}
-                        >
-                          تعديل
-                        </Button>
-                      </DialogTrigger>
+                      <Button
+                        type="button"
+                        className="rounded-xl"
+                        variant="outline"
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => setEditingId(t.id)}
+                      >
+                        تعديل
+                      </Button>
                       <DialogContent className="rounded-xl">
                         <DialogHeader>
                           <DialogTitle>تعديل المعلم</DialogTitle>
