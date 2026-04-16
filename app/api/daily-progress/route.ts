@@ -4,11 +4,6 @@ import { db } from "@/lib/db";
 
 export const runtime = "nodejs";
 
-const QuerySchema = z.object({
-  date: z.string().min(8), // "DD/MM/YYYY"
-  teacherId: z.coerce.number().int().positive(),
-});
-
 const UpsertSchema = z.object({
   studentId: z.number().int().positive(),
   teacherId: z.number().int().positive(),
@@ -23,16 +18,26 @@ const UpsertSchema = z.object({
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
-  const parsed = QuerySchema.safeParse({
-    date: url.searchParams.get("date"),
-    teacherId: url.searchParams.get("teacherId"),
-  });
-  if (!parsed.success) {
-    return NextResponse.json({ error: "INVALID_QUERY" }, { status: 400 });
+  const date = url.searchParams.get("date");
+  const teacherIdStr = url.searchParams.get("teacherId");
+  
+  if (!date || date.length < 8) {
+    return NextResponse.json({ error: "Invalid date parameter" }, { status: 400 });
   }
-  const { date, teacherId } = parsed.data;
+  
+  let teacherId: number | undefined;
+  if (teacherIdStr) {
+    teacherId = parseInt(teacherIdStr, 10);
+    if (!Number.isFinite(teacherId) || teacherId <= 0) {
+      return NextResponse.json({ error: "Invalid teacherId parameter" }, { status: 400 });
+    }
+  }
+  
   const rows = await db.dailyProgress.findMany({
-    where: { hijriDate: date, teacherId },
+    where: {
+      hijriDate: date,
+      ...(teacherId ? { teacherId } : {}),
+    },
   });
   return NextResponse.json(rows);
 }

@@ -114,11 +114,16 @@ export function TeachersManager({ initial }: { initial: Teacher[] }) {
           status: "active",
         }),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to add teacher");
+      }
       const created = (await res.json()) as Teacher;
       setTeachers((prev) => [...prev, created].sort((a, b) => a.id - b.id));
       toast.success("تم إضافة المعلم بنجاح");
     } catch (error) {
-      toast.error("خطأ في إضافة المعلم");
+      const message = error instanceof Error ? error.message : "خطأ في إضافة المعلم";
+      toast.error(message);
       throw error;
     }
   }
@@ -132,11 +137,16 @@ export function TeachersManager({ initial }: { initial: Teacher[] }) {
           fullName: data.fullName,
         }),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to update teacher");
+      }
       const updated = (await res.json()) as Teacher;
       setTeachers((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       toast.success("تم تحديث المعلم بنجاح");
     } catch (error) {
-      toast.error("خطأ في تحديث المعلم");
+      const message = error instanceof Error ? error.message : "خطأ في تحديث المعلم";
+      toast.error(message);
       throw error;
     }
   }

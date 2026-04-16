@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
-import { calculateAgeFromHijriYear } from "@/lib/hijri";
+import { calculateAgeFromHijriYear, calculateHijriBirthYearFromAge } from "@/lib/hijri";
 import { toast } from "sonner";
 
 type Student = {
@@ -43,9 +43,15 @@ function StudentForm({
   onOpenChange: (open: boolean) => void;
 }) {
   const [name, setName] = useState(student?.fullName ?? "");
-  const [birthYear, setBirthYear] = useState(student?.hijriBirthYear?.toString() ?? "");
+  const [age, setAge] = useState(
+    student?.hijriBirthYear
+      ? String(calculateAgeFromHijriYear(student.hijriBirthYear))
+      : ""
+  );
   const [notes, setNotes] = useState(student?.notes ?? "");
   const [loading, setLoading] = useState(false);
+
+  const calculatedBirthYear = age ? calculateHijriBirthYearFromAge(parseInt(age, 10)) : null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +59,7 @@ function StudentForm({
     try {
       await onSave({
         fullName: name,
-        hijriBirthYear: birthYear ? parseInt(birthYear, 10) : null,
+        hijriBirthYear: calculatedBirthYear,
         notes: notes || null,
       });
       onOpenChange(false);
@@ -76,17 +82,24 @@ function StudentForm({
       </div>
 
       <div className="space-y-1.5">
-        <Label>سنة الميلاد (هجري)</Label>
+        <Label>العمر (سنة)</Label>
         <Input
           type="number"
-          value={birthYear}
-          onChange={(e) => setBirthYear(e.target.value)}
-          placeholder="مثال: 1410"
-          min="1300"
-          max="1600"
+          value={age}
+          onChange={(e) => setAge(e.target.value)}
+          placeholder="مثال: 12"
+          min="1"
+          max="100"
           disabled={loading}
         />
       </div>
+
+      {calculatedBirthYear && (
+        <div className="rounded-lg bg-muted/50 p-3">
+          <p className="text-xs text-muted-foreground">سنة الميلاد المحسوبة (هجري)</p>
+          <p className="text-sm font-semibold">{calculatedBirthYear}</p>
+        </div>
+      )}
 
       <div className="space-y-1.5">
         <Label>ملاحظات</Label>
@@ -151,11 +164,16 @@ export function StudentsManager({ initial }: { initial: Student[] }) {
           state: "active",
         }),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to add student");
+      }
       const created = (await res.json()) as Student;
       setStudents((prev) => [...prev, created].sort((a, b) => a.id - b.id));
       toast.success("تم إضافة الطالب بنجاح");
     } catch (error) {
-      toast.error("خطأ في إضافة الطالب");
+      const message = error instanceof Error ? error.message : "خطأ في إضافة الطالب";
+      toast.error(message);
       throw error;
     }
   }
@@ -171,11 +189,16 @@ export function StudentsManager({ initial }: { initial: Student[] }) {
           notes: data.notes,
         }),
       });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(errorData.error || "Failed to update student");
+      }
       const updated = (await res.json()) as Student;
       setStudents((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
       toast.success("تم تحديث الطالب بنجاح");
     } catch (error) {
-      toast.error("خطأ في تحديث الطالب");
+      const message = error instanceof Error ? error.message : "خطأ في تحديث الطالب";
+      toast.error(message);
       throw error;
     }
   }

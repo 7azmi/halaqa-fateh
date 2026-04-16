@@ -47,3 +47,9 @@ export function calculateAgeFromHijriYear(birthYear: number): number {
   return currentHijri.year - birthYear;
 }
 
+export function calculateHijriBirthYearFromAge(age: number): number {
+  const now = new Date();
+  const currentHijri = getHijriFromGregorian(now);
+  return currentHijri.year - age;
+}
+

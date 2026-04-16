@@ -18,19 +18,24 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  const parsed = TeacherCreateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+  try {
+    const body = await req.json().catch(() => null);
+    const parsed = TeacherCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+    }
+    const t = parsed.data;
+    const created = await db.teacher.create({
+      data: {
+        ...(t.id ? { id: t.id } : {}),
+        fullName: t.fullName,
+        status: t.status ?? "active",
+      },
+    });
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  const t = parsed.data;
-  const created = await db.teacher.create({
-    data: {
-      ...(t.id ? { id: t.id } : {}),
-      fullName: t.fullName,
-      status: t.status ?? "active",
-    },
-  });
-  return NextResponse.json(created, { status: 201 });
 }
 

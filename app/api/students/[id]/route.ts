@@ -16,30 +16,35 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { id } = await params;
-  const studentId = parseInt(id, 10);
-  if (!studentId) {
-    return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
+  try {
+    const { id } = await params;
+    const studentId = parseInt(id, 10);
+    if (!studentId) {
+      return NextResponse.json({ error: "INVALID_ID" }, { status: 400 });
+    }
+    const body = await req.json().catch(() => null);
+    const parsed = StudentUpdateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+    }
+    const updated = await db.student.update({
+      where: { id: studentId },
+      data: {
+        ...(parsed.data.fullName ? { fullName: parsed.data.fullName } : {}),
+        ...(parsed.data.hijriBirthYear !== undefined
+          ? { hijriBirthYear: parsed.data.hijriBirthYear }
+          : {}),
+        ...(parsed.data.hijriEnrollmentDate !== undefined
+          ? { hijriEnrollmentDate: parsed.data.hijriEnrollmentDate }
+          : {}),
+        ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}),
+        ...(parsed.data.state ? { state: parsed.data.state } : {}),
+      },
+    });
+    return NextResponse.json(updated);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  const body = await req.json().catch(() => null);
-  const parsed = StudentUpdateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
-  }
-  const updated = await db.student.update({
-    where: { id: studentId },
-    data: {
-      ...(parsed.data.fullName ? { fullName: parsed.data.fullName } : {}),
-      ...(parsed.data.hijriBirthYear !== undefined
-        ? { hijriBirthYear: parsed.data.hijriBirthYear }
-        : {}),
-      ...(parsed.data.hijriEnrollmentDate !== undefined
-        ? { hijriEnrollmentDate: parsed.data.hijriEnrollmentDate }
-        : {}),
-      ...(parsed.data.notes !== undefined ? { notes: parsed.data.notes } : {}),
-      ...(parsed.data.state ? { state: parsed.data.state } : {}),
-    },
-  });
-  return NextResponse.json(updated);
 }
 

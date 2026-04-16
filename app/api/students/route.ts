@@ -23,22 +23,27 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const body = await req.json().catch(() => null);
-  const parsed = StudentCreateSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+  try {
+    const body = await req.json().catch(() => null);
+    const parsed = StudentCreateSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_BODY" }, { status: 400 });
+    }
+    const s = parsed.data;
+    const created = await db.student.create({
+      data: {
+        ...(s.id ? { id: s.id } : {}),
+        fullName: s.fullName,
+        hijriBirthYear: s.hijriBirthYear ?? null,
+        hijriEnrollmentDate: s.hijriEnrollmentDate ?? null,
+        notes: s.notes ?? null,
+        state: s.state ?? "active",
+      },
+    });
+    return NextResponse.json(created, { status: 201 });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Database error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-  const s = parsed.data;
-  const created = await db.student.create({
-    data: {
-      ...(s.id ? { id: s.id } : {}),
-      fullName: s.fullName,
-      hijriBirthYear: s.hijriBirthYear ?? null,
-      hijriEnrollmentDate: s.hijriEnrollmentDate ?? null,
-      notes: s.notes ?? null,
-      state: s.state ?? "active",
-    },
-  });
-  return NextResponse.json(created, { status: 201 });
 }
 
