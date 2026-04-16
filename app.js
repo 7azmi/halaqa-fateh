@@ -1,19 +1,8 @@
 (() => {
-  const LS_KEYS = {
-    token: 'hf_github_token',
-    pending: 'hf_pending_entries_v1',
-    cacheMeta: 'hf_cache_meta_v1',
-    students: 'hf_students_csv_v1',
-    teachers: 'hf_teachers_csv_v1',
-    lastTeacherId: 'hf_last_teacher_id',
-    archivedStudents: 'hf_archived_students_v1',
-    archivedTeachers: 'hf_archived_teachers_v1',
-    studentTeacherOverrides: 'hf_student_teacher_overrides_v1',
-  };
-
-  const DEFAULT_OWNER = '7azmi';
-  const DEFAULT_REPO = 'halaqa-fateh';
-  const DEFAULT_BRANCH = 'main';
+  if (typeof Controller === 'undefined') {
+    console.error('Controller must be loaded before app.js');
+    return;
+  }
 
   const authView = document.getElementById('auth-view');
   const appView = document.getElementById('app-view');
@@ -47,11 +36,8 @@
 
   const toastEl = document.getElementById('toast');
 
-  let students = [];
-  let teachers = [];
   let showOnlyWithValues = false;
-  const studentDefaultTeacher = {};
-  let allProgressRows = [];
+  let currentRealDate = new Date();
 
   function showToast(message) {
     if (!toastEl) return;
@@ -72,97 +58,18 @@
     }
   }
 
-  function safeJSONParse(value, fallback) {
-    if (!value) return fallback;
-    try {
-      return JSON.parse(value);
-    } catch {
-      return fallback;
-    }
-  }
-
-  function getConfig() {
-    return {
-      token: localStorage.getItem(LS_KEYS.token) || '',
-      owner: DEFAULT_OWNER,
-      repo: DEFAULT_REPO,
-      branch: DEFAULT_BRANCH,
-    };
-  }
-
-  function saveConfig(cfg) {
-    localStorage.setItem(LS_KEYS.token, cfg.token);
-  }
-
-  function getPendingEntries() {
-    return safeJSONParse(localStorage.getItem(LS_KEYS.pending), []);
-  }
-
-  function savePendingEntries(entries) {
-    localStorage.setItem(LS_KEYS.pending, JSON.stringify(entries));
-  }
-
-  let currentRealDate = new Date();
-
-  function getHijriFromDate(date) {
-    try {
-      const formatter = new Intl.DateTimeFormat('en-u-ca-islamic-nu-latn', {
-        day: 'numeric',
-        month: 'numeric',
-        year: 'numeric',
-      });
-      const parts = formatter.formatToParts(date);
-      const getPart = (type, fallback) => {
-        const value = parts.find((p) => p.type === type)?.value;
-        const n = value != null ? parseInt(value, 10) : NaN;
-        return Number.isNaN(n) ? fallback : n;
-      };
-      const day = getPart('day', 1);
-      const month = getPart('month', 1);
-      const year = getPart('year', 1447);
-      return { day, month, year };
-    } catch (err) {
-      console.error('Failed to get Hijri date for', date, err);
-      return { day: 1, month: 1, year: 1447 };
-    }
-  }
-
-  function getCurrentHijriDate() {
-    return getHijriFromDate(new Date());
-  }
-
-  function getHijriWeekdayLabel(date) {
-    try {
-      const formatter = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
-        weekday: 'long',
-      });
-      return formatter.format(date || new Date());
-    } catch (err) {
-      console.error('Failed to get Hijri weekday for', date, err);
-      return '';
-    }
-  }
-
   function ensureHijriInputsDefault() {
     if (!hijriDayInput || !hijriMonthInput || !hijriYearInput) return;
-    
     const currentDay = hijriDayInput.value ? parseInt(hijriDayInput.value, 10) : 0;
     const currentMonth = hijriMonthInput.value ? parseInt(hijriMonthInput.value, 10) : 0;
     const currentYear = hijriYearInput.value ? parseInt(hijriYearInput.value, 10) : 0;
-    
     if (!currentDay || !currentMonth || !currentYear) {
-      const d = getCurrentHijriDate();
+      const d = Controller.get_hijri_from_date(new Date());
       hijriDayInput.value = String(d.day);
       hijriMonthInput.value = String(d.month);
       hijriYearInput.value = String(d.year);
+      Controller.set_selected_hijri(d.day, d.month, d.year);
     }
-  }
-
-  function getCurrentHijriString() {
-    const day = String(parseInt(hijriDayInput.value || '1', 10)).padStart(2, '0');
-    const month = String(parseInt(hijriMonthInput.value || '1', 10)).padStart(2, '0');
-    const year = hijriYearInput.value || '1447';
-    return `${day}/${month}/${year}`;
   }
 
   function getSelectedTeacherId() {
@@ -228,19 +135,10 @@
     return row;
   }
 
-  function getStudentTeacherOverrides() {
-    const raw = localStorage.getItem(LS_KEYS.studentTeacherOverrides);
-    const parsed = safeJSONParse(raw, {});
-    return parsed && typeof parsed === 'object' ? parsed : {};
-  }
-
-  function saveStudentTeacherOverrides(overrides) {
-    localStorage.setItem(LS_KEYS.studentTeacherOverrides, JSON.stringify(overrides || {}));
-  }
-
   function attachTeacherMappingUI(row, stu) {
     const meta = row.querySelector('.student-meta');
     if (!meta) return;
+    const studentDefaultTeacher = Controller.get_student_default_teacher_map();
     const currentTid = studentDefaultTeacher[stu.id];
     const container = document.createElement('div');
     container.className = 'mt-1 flex items-center gap-1 text-[10px] text-slate-500';
@@ -256,6 +154,7 @@
       'student-teacher-chip px-2 py-0.5 rounded-full border border-slate-200 bg-slate-50 text-[10px] text-slate-700 hover:bg-emerald-50';
 
     if (currentTid) {
+      const teachers = Controller.get_teachers();
       const teacher = teachers.find((t) => t.id === currentTid);
       chip.textContent = teacher ? teacher.full_name : 'غير محددة';
     } else {
@@ -270,12 +169,14 @@
     if (!studentsListEl) return;
     studentsListEl.innerHTML = '';
     let count = 0;
-    const currentDate = getCurrentHijriString();
-    const pending = getPendingEntries();
+    const currentDate = Controller.get_selected_hijri_date();
+    const pending = Controller.get_pending_entries();
     const pendingKey = new Set(
       pending.map((p) => `${p.student_id}|${p.teacher_id}|${p.hijri_date}`)
     );
     const selectedTeacherId = getSelectedTeacherId();
+    const students = Controller.get_students();
+    const studentDefaultTeacher = Controller.get_student_default_teacher_map();
 
     students.forEach((stu) => {
       const defaultTeacherId = studentDefaultTeacher[stu.id];
@@ -295,7 +196,7 @@
         row.classList.add('pending-local');
       }
 
-      const existing = findExistingEntry(stu.id, selectedTeacherId, currentDate, pending);
+      const existing = Controller.find_existing_entry(stu.id, selectedTeacherId, currentDate);
       if (existing && selectedTeacherId) {
         const hifzInput = row.querySelector('.input-hifz');
         const murInput = row.querySelector('.input-muragaa');
@@ -330,50 +231,21 @@
     recalcPresentCount();
   }
 
-  function findExistingEntry(studentId, teacherId, date, pendingEntries) {
-    if (!teacherId) return null;
-    const allPending = pendingEntries || getPendingEntries();
-    const fromPending = allPending.find(
-      (p) =>
-        String(p.student_id) === String(studentId) &&
-        String(p.teacher_id) === String(teacherId) &&
-        p.hijri_date === date
-    );
-    if (fromPending) return fromPending;
-
-    const fromStored = allProgressRows.find(
-      (r) =>
-        String(r.student_id) === String(studentId) &&
-        String(r.teacher_id) === String(teacherId) &&
-        r.hijri_date === date
-    );
-    if (!fromStored) return null;
-    return {
-      student_id: parseInt(fromStored.student_id || studentId, 10),
-      teacher_id: parseInt(fromStored.teacher_id || teacherId, 10),
-      hifz: fromStored.hifz,
-      muragaa: fromStored.muragaa,
-      hijri_date: fromStored.hijri_date,
-      notes: fromStored.notes || '',
-    };
-  }
-
   function recalcPresentCount() {
     if (!studentsListEl) return;
     const rows = Array.from(studentsListEl.querySelectorAll('.student-row'));
-    const currentDate = getCurrentHijriString();
+    const currentDate = Controller.get_selected_hijri_date();
     const selectedTeacherId = getSelectedTeacherId();
-    const pending = getPendingEntries();
     let present = 0;
 
     rows.forEach((row) => {
       const studentId = parseInt(row.dataset.studentId || '0', 10);
       const hifzInput = row.querySelector('.input-hifz');
       const murInput = row.querySelector('.input-muragaa');
-      const hVal = parseFloat(hifzInput.value || '0') || 0;
-      const mVal = parseFloat(murInput.value || '0') || 0;
+      const hVal = parseFloat(hifzInput?.value || '0') || 0;
+      const mVal = parseFloat(murInput?.value || '0') || 0;
       const hasLocallyEntered = hVal !== 0 || mVal !== 0;
-      const hasPending = !!findExistingEntry(studentId, selectedTeacherId, currentDate, pending);
+      const hasPending = !!Controller.find_existing_entry(studentId, selectedTeacherId, currentDate);
       if (hasLocallyEntered || hasPending) {
         present += 1;
         row.classList.add('attended');
@@ -385,172 +257,22 @@
     if (presentCountEl) presentCountEl.textContent = `الحاضرون: ${present}`;
   }
 
-  function withConfigCheck(fn) {
-    return async (...args) => {
-      const cfg = getConfig();
-      if (!cfg.token) {
-        showToast('الرجاء إعداد رمز الدخول أولاً.');
-        return;
-      }
-      return fn(cfg, ...args);
-    };
-  }
-
-  async function githubRequest(cfg, path, options = {}) {
-    const url = `https://api.github.com${path}`;
-    const headers = {
-      Accept: 'application/vnd.github+json',
-      Authorization: `token ${cfg.token}`,
-    };
-    if (options.body && !options.headers) {
-      headers['Content-Type'] = 'application/json';
-    }
-    const res = await fetch(url, {
-      method: options.method || 'GET',
-      headers: { ...headers, ...(options.headers || {}) },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    });
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`خطأ من GitHub: ${res.status} - ${text}`);
-    }
-    return res.json();
-  }
-
-  function parseCsv(text) {
-    const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
-    const result = [];
-    let headers = null;
-    for (const raw of lines) {
-      const line = raw.trim();
-      if (!line) continue;
-      const cols = line.split(',');
-      if (!headers) {
-        headers = cols;
-        continue;
-      }
-      const row = {};
-      headers.forEach((h, i) => {
-        row[h] = cols[i] !== undefined ? cols[i] : '';
-      });
-      result.push(row);
-    }
-    return { headers: headers || [], rows: result };
-  }
-
-  function stringifyCsv(headers, rows) {
-    const escape = (v) => {
-      const s = v == null ? '' : String(v);
-      if (s.includes(',') || s.includes('"') || s.includes('\n')) {
-        return `"${s.replace(/"/g, '""')}"`;
-      }
-      return s;
-    };
-    const headerLine = headers.join(',');
-    const lines = [headerLine];
-    rows.forEach((r) => {
-      const line = headers.map((h) => escape(r[h])).join(',');
-      lines.push(line);
-    });
-    return lines.join('\n');
-  }
-
-  const loadCsvFile = withConfigCheck(async (cfg, filename) => {
-    const path = `/repos/${cfg.owner}/${cfg.repo}/contents/data/${filename}?ref=${cfg.branch}`;
-    const json = await githubRequest(cfg, path);
-    const binary = atob(json.content.replace(/\n/g, ''));
-    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-    const content = new TextDecoder('utf-8').decode(bytes);
-    return { text: content, sha: json.sha };
-  });
-
   async function loadStudentsAndTeachers() {
-    let studentsCsv = localStorage.getItem(LS_KEYS.students);
-    let teachersCsv = localStorage.getItem(LS_KEYS.teachers);
-    if (navigator.onLine) {
-      try {
-        const [sFile, tFile, pFile] = await Promise.all([
-          loadCsvFile('students.csv'),
-          loadCsvFile('teachers.csv'),
-          loadCsvFile('daily_progress.csv'),
-        ]);
-        studentsCsv = sFile.text;
-        teachersCsv = tFile.text;
-        localStorage.setItem(LS_KEYS.students, studentsCsv);
-        localStorage.setItem(LS_KEYS.teachers, teachersCsv);
-
-        // Build default teacher per student from daily_progress.csv
-        const progressParsed = parseCsv(pFile.text);
-        allProgressRows = progressParsed.rows || [];
-        const countsByStudent = {};
-        progressParsed.rows.forEach((r) => {
-          const sid = parseInt(r.student_id || '0', 10);
-          const tid = parseInt(r.teacher_id || '0', 10);
-          if (!sid || !tid) return;
-          if (!countsByStudent[sid]) countsByStudent[sid] = {};
-          countsByStudent[sid][tid] = (countsByStudent[sid][tid] || 0) + 1;
-        });
-        Object.keys(countsByStudent).forEach((sidStr) => {
-          const sid = parseInt(sidStr, 10);
-          const teacherCounts = countsByStudent[sid];
-          let bestTid = null;
-          let bestCount = -1;
-          Object.keys(teacherCounts).forEach((tidStr) => {
-            const c = teacherCounts[tidStr];
-            if (c > bestCount) {
-              bestCount = c;
-              bestTid = parseInt(tidStr, 10);
-            }
-          });
-          if (bestTid) {
-            studentDefaultTeacher[sid] = bestTid;
-          }
-        });
-
-        const overrides = getStudentTeacherOverrides();
-        Object.keys(overrides || {}).forEach((sidStr) => {
-          const sid = parseInt(sidStr, 10);
-          const tid = parseInt(overrides[sidStr], 10);
-          if (!sid || !tid) return;
-          studentDefaultTeacher[sid] = tid;
-        });
-      } catch (err) {
-        console.warn('تعذر تحميل بيانات الطلاب/المعلمين من المستودع، سيتم استخدام النسخة المخزنة محليًا إن وجدت.', err);
-        showToast('تعذر الوصول للمستودع، سيتم استخدام البيانات المخزنة محليًا إن وجدت.');
-      }
-    }
-    if (!studentsCsv || !teachersCsv) {
-      showToast('لا توجد بيانات طلاب/معلمين محلية بعد. تأكد من الاتصال بالإنترنت أولاً.');
+    if (!Controller.is_authenticated()) {
+      showToast('الرجاء إعداد رمز الدخول أولاً.');
       return;
     }
-    const sParsed = parseCsv(studentsCsv);
-    const tParsed = parseCsv(teachersCsv);
-
-    const archivedStudentIds = new Set(
-      (safeJSONParse(localStorage.getItem(LS_KEYS.archivedStudents), []) || []).map((id) =>
-        parseInt(id, 10)
-      )
-    );
-    const archivedTeacherIds = new Set(
-      (safeJSONParse(localStorage.getItem(LS_KEYS.archivedTeachers), []) || []).map((id) =>
-        parseInt(id, 10)
-      )
-    );
-
-    students = sParsed.rows
-      .map((r) => ({
-        id: parseInt(r.id, 10),
-        full_name: r.full_name,
-        hijri_birth_year: r.hijri_birth_year || '',
-      }))
-      .filter((s) => !archivedStudentIds.has(s.id));
-
-    teachers = tParsed.rows
-      .map((r) => ({
-        id: parseInt(r.id, 10),
-        full_name: r.full_name,
-      }))
-      .filter((t) => !archivedTeacherIds.has(t.id));
+    try {
+      await Controller.load_data();
+    } catch (err) {
+      console.warn('تعذر تحميل بيانات الطلاب/المعلمين من المستودع، سيتم استخدام النسخة المخزنة محليًا إن وجدت.', err);
+      showToast('تعذر الوصول للمستودع، سيتم استخدام البيانات المخزنة محليًا إن وجدت.');
+    }
+    const students = Controller.get_students();
+    const teachers = Controller.get_teachers();
+    if (!students.length && !teachers.length) {
+      showToast('لا توجد بيانات طلاب/معلمين محلية بعد. تأكد من الاتصال بالإنترنت أولاً.');
+    }
     if (teacherSelect) {
       teacherSelect.innerHTML = '<option value="">اختر المعلم</option>';
       teachers.forEach((t) => {
@@ -559,11 +281,10 @@
         opt.textContent = t.full_name;
         teacherSelect.appendChild(opt);
       });
-      const lastTeacher = localStorage.getItem(LS_KEYS.lastTeacherId);
+      const lastTeacher = Controller.get_last_teacher_id();
       if (lastTeacher) teacherSelect.value = lastTeacher;
     }
 
-    // Render teacher buttons (chips) instead of dropdown UI
     if (teacherButtonsEl) {
       teacherButtonsEl.innerHTML = '';
 
@@ -593,14 +314,12 @@
 
   function collectFormToPending() {
     const teacherId = getSelectedTeacherId();
-    if (!teacherId) {
-      return false;
-    }
-    const date = getCurrentHijriString();
+    if (!teacherId) return false;
+    const date = Controller.get_selected_hijri_date();
     const rows = studentsListEl
       ? Array.from(studentsListEl.querySelectorAll('.student-row'))
       : [];
-    const pending = getPendingEntries();
+    const pending = Controller.get_pending_entries();
     const byKey = new Map(
       pending.map((p) => [`${p.student_id}|${p.teacher_id}|${p.hijri_date}`, p])
     );
@@ -627,84 +346,18 @@
     });
 
     const newPending = Array.from(byKey.values());
-    savePendingEntries(newPending);
+    Controller.set_pending_entries(newPending);
     recalcPresentCount();
     return true;
   }
 
-  async function syncPendingToGithubInternal(cfg) {
-    const pending = getPendingEntries();
-    if (!pending.length) {
-      return;
-    }
-
+  async function backgroundSyncIfPossible() {
+    if (!Controller.is_online()) return;
+    if (!Controller.get_pending_entries().length) return;
     try {
-      const file = await loadCsvFile('daily_progress.csv');
-      const parsed = parseCsv(file.text);
-      const existingRows = parsed.rows;
-      const headers = parsed.headers;
-      if (!headers.length) {
-        headers.push('student_id', 'teacher_id', 'hifz', 'muragaa', 'hijri_date', 'notes');
-      }
-      const indexByKey = new Map();
-      existingRows.forEach((r, idx) => {
-        const key = `${r.student_id}|${r.teacher_id}|${r.hijri_date}`;
-        indexByKey.set(key, idx);
-      });
-      pending.forEach((p) => {
-        const key = `${p.student_id}|${p.teacher_id}|${p.hijri_date}`;
-        if (indexByKey.has(key)) {
-          const idx = indexByKey.get(key);
-          existingRows[idx] = {
-            student_id: String(p.student_id),
-            teacher_id: String(p.teacher_id),
-            hifz: String(p.hifz),
-            muragaa: String(p.muragaa),
-            hijri_date: p.hijri_date,
-            notes: p.notes || '',
-          };
-        } else {
-          existingRows.push({
-            student_id: String(p.student_id),
-            teacher_id: String(p.teacher_id),
-            hifz: String(p.hifz),
-            muragaa: String(p.muragaa),
-            hijri_date: p.hijri_date,
-            notes: p.notes || '',
-          });
-        }
-      });
-
-      const newContent = stringifyCsv(headers, existingRows);
-      const b64 = btoa(unescape(encodeURIComponent(newContent)));
-
-      const path = `/repos/${cfg.owner}/${cfg.repo}/contents/data/daily_progress.csv`;
-      await githubRequest(cfg, path, {
-        method: 'PUT',
-        body: {
-          message: 'Add daily progress entries from حلقة الفتح tool',
-          content: b64,
-          sha: file.sha,
-          branch: cfg.branch,
-        },
-      });
-
-      savePendingEntries([]);
-      allProgressRows = existingRows;
+      await Controller.sync_data();
       recalcPresentCount();
       renderStudentStats();
-    } catch (err) {
-      console.error(err);
-    }
-  }
-
-  async function backgroundSyncIfPossible() {
-    if (!navigator.onLine) return;
-    const cfg = getConfig();
-    if (!cfg.token) return;
-    if (!getPendingEntries().length) return;
-    try {
-      await syncPendingToGithubInternal(cfg);
     } catch (err) {
       console.warn('خلفية: فشل في المزامنة، سيتم المحاولة لاحقاً.', err);
     }
@@ -725,17 +378,8 @@
   }
 
   function initConfigUI() {
-    const cfg = getConfig();
-    tokenInput.value = cfg.token;
-  }
-
-  function initConnectionStatus() {
-    setConnectionStatus(navigator.onLine);
-    window.addEventListener('online', () => {
-      setConnectionStatus(true);
-      backgroundSyncIfPossible();
-    });
-    window.addEventListener('offline', () => setConnectionStatus(false));
+    const cfg = Controller.get_config();
+    if (tokenInput) tokenInput.value = cfg.token || '';
   }
 
   function registerServiceWorker() {
@@ -750,16 +394,13 @@
     if (!authForm || !tokenInput) return;
     authForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const cfg = {
-        token: tokenInput.value.trim(),
-      };
-      if (!cfg.token) {
+      const token = tokenInput.value.trim();
+      if (!token) {
         showToast('الرجاء إدخال رمز الدخول الشخصي.');
         return;
       }
-      saveConfig(cfg);
-      localStorage.setItem(LS_KEYS.students, '');
-      localStorage.setItem(LS_KEYS.teachers, '');
+      Controller.store_github_token_locally(token);
+      Controller.clear_local_csv_cache();
       switchToAppView();
       loadStudentsAndTeachers();
       showToast('تم حفظ الإعدادات. يمكنك الآن البدء في إدخال بيانات الطلاب.');
@@ -767,12 +408,13 @@
 
     if (backToAppBtn) {
       backToAppBtn.addEventListener('click', () => {
-        const cfg = getConfig();
-        if (!cfg.token) {
+        if (!Controller.is_authenticated()) {
           showToast('الرجاء إدخال رمز الدخول أولاً.');
           return;
         }
         switchToAppView();
+        const students = Controller.get_students();
+        const teachers = Controller.get_teachers();
         if (!students.length || !teachers.length) {
           loadStudentsAndTeachers();
         }
@@ -782,9 +424,7 @@
     if (teacherSelect) {
       teacherSelect.addEventListener('change', () => {
         const val = teacherSelect.value;
-        if (val) {
-          localStorage.setItem(LS_KEYS.lastTeacherId, val);
-        }
+        if (val) Controller.set_last_teacher_id(val);
         renderStudents();
       });
     }
@@ -795,9 +435,7 @@
         if (!target) return;
         const id = target.dataset.teacherId || '';
         teacherSelect.value = id;
-        if (id) {
-          localStorage.setItem(LS_KEYS.lastTeacherId, id);
-        }
+        if (id) Controller.set_last_teacher_id(id);
         updateTeacherButtonsActive();
         renderStudents();
       });
@@ -805,6 +443,9 @@
 
     [hijriDayInput, hijriMonthInput, hijriYearInput].forEach((input) => {
       if (input) input.addEventListener('change', () => {
+        if (hijriDayInput && hijriMonthInput && hijriYearInput) {
+          Controller.set_selected_hijri(hijriDayInput.value, hijriMonthInput.value, hijriYearInput.value);
+        }
         updateHijriLabels();
         renderStudents();
       });
@@ -820,10 +461,11 @@
 
     function setDateFromReal(date) {
       currentRealDate = date;
-      const d = getHijriFromDate(date);
+      const d = Controller.get_hijri_from_date(date);
       if (hijriDayInput) hijriDayInput.value = String(d.day);
       if (hijriMonthInput) hijriMonthInput.value = String(d.month);
       if (hijriYearInput) hijriYearInput.value = String(d.year);
+      Controller.set_selected_hijri(d.day, d.month, d.year);
       updateHijriLabels();
       renderStudents();
     }
@@ -873,13 +515,12 @@
           return;
         }
 
-        // Try to find a real date whose Hijri calendar is the first of this month/year
         const base = new Date();
         let found = null;
         for (let offset = -730; offset <= 730; offset += 1) {
           const d = new Date(base.getTime());
           d.setDate(d.getDate() + offset);
-          const h = getHijriFromDate(d);
+          const h = Controller.get_hijri_from_date(d);
           if (h.year === targetYear && h.month === targetMonth && h.day === 1) {
             found = d;
             break;
@@ -889,10 +530,11 @@
         if (found) {
           setDateFromReal(found);
         } else {
-          // Fallback: just update hidden inputs and UI
+          currentRealDate = null;
           if (hijriDayInput) hijriDayInput.value = '1';
           if (hijriMonthInput) hijriMonthInput.value = String(targetMonth);
           if (hijriYearInput) hijriYearInput.value = String(targetYear);
+          Controller.set_selected_hijri(1, targetMonth, targetYear);
           updateHijriLabels();
           renderStudents();
         }
@@ -932,6 +574,7 @@
           noneOption.textContent = 'غير محددة';
           select.appendChild(noneOption);
 
+          const teachers = Controller.get_teachers();
           teachers.forEach((t) => {
             const opt = document.createElement('option');
             opt.value = String(t.id);
@@ -939,28 +582,23 @@
             select.appendChild(opt);
           });
 
+          const studentDefaultTeacher = Controller.get_student_default_teacher_map();
           const currentTid = studentDefaultTeacher[sid];
-          if (currentTid) {
-            select.value = String(currentTid);
-          }
+          if (currentTid) select.value = String(currentTid);
 
           teacherChip.replaceWith(select);
           select.focus();
 
           const finalize = () => {
             const val = select.value;
-            const overrides = getStudentTeacherOverrides();
+            const overrides = { ...Controller.get_student_teacher_overrides() };
             if (val) {
               const tid = parseInt(val, 10);
-              if (tid) {
-                overrides[String(sid)] = tid;
-                studentDefaultTeacher[sid] = tid;
-              }
+              if (tid) overrides[String(sid)] = tid;
             } else {
               delete overrides[String(sid)];
-              delete studentDefaultTeacher[sid];
             }
-            saveStudentTeacherOverrides(overrides);
+            Controller.set_student_teacher_overrides(overrides);
             renderStudents();
             renderStudentStats();
           };
@@ -1012,14 +650,15 @@
 
     if (openSettingsBtn) {
       openSettingsBtn.addEventListener('click', () => {
-        const cfg = getConfig();
         initConfigUI();
-        if (!cfg.token) {
+        if (!Controller.is_authenticated()) {
           switchToAuthView();
           showToast('أدخل رمز الدخول أولاً لتهيئة الاتصال.');
           return;
         }
         switchToAuthView();
+        const students = Controller.get_students();
+        const teachers = Controller.get_teachers();
         if (!students.length || !teachers.length) {
           loadStudentsAndTeachers();
         } else {
@@ -1036,35 +675,8 @@
         const type = btn.dataset.type;
         const id = btn.dataset.id;
         if (type !== 'student' && type !== 'teacher') return;
-
-        if (type === 'student') {
-          const archived = new Set(
-            safeJSONParse(localStorage.getItem(LS_KEYS.archivedStudents), []) || []
-          );
-          if (archived.has(id)) {
-            archived.delete(id);
-          } else {
-            archived.add(id);
-          }
-          localStorage.setItem(
-            LS_KEYS.archivedStudents,
-            JSON.stringify(Array.from(archived))
-          );
-        } else if (type === 'teacher') {
-          const archived = new Set(
-            safeJSONParse(localStorage.getItem(LS_KEYS.archivedTeachers), []) || []
-          );
-          if (archived.has(id)) {
-            archived.delete(id);
-          } else {
-            archived.add(id);
-          }
-          localStorage.setItem(
-            LS_KEYS.archivedTeachers,
-            JSON.stringify(Array.from(archived))
-          );
-        }
-
+        if (type === 'student') Controller.toggle_archived_student(id);
+        else if (type === 'teacher') Controller.toggle_archived_teacher(id);
         loadStudentsAndTeachers();
       });
     }
@@ -1073,10 +685,11 @@
       todayBtn.addEventListener('click', () => {
         const realToday = new Date();
         currentRealDate = realToday;
-        const d = getHijriFromDate(realToday);
+        const d = Controller.get_hijri_from_date(realToday);
         if (hijriDayInput) hijriDayInput.value = String(d.day);
         if (hijriMonthInput) hijriMonthInput.value = String(d.month);
         if (hijriYearInput) hijriYearInput.value = String(d.year);
+        Controller.set_selected_hijri(d.day, d.month, d.year);
         updateHijriLabels();
         setHeaderView('daily');
         renderStudents();
@@ -1096,18 +709,18 @@
   }
 
   function updateHijriLabels() {
-    const date = getCurrentHijriString();
+    const date = Controller.get_selected_hijri_date();
     const [day] = date.split('/');
     if (document.getElementById('hijri-day-label')) {
       document.getElementById('hijri-day-label').textContent = `اليوم ${parseInt(day, 10)}`;
     }
     const pill = document.getElementById('hijri-date-pill');
-    if (pill) {
-      pill.textContent = date;
-    }
+    if (pill) pill.textContent = date;
     const weekdaySpan = document.getElementById('hijri-weekday-pill');
     if (weekdaySpan) {
-      weekdaySpan.textContent = getHijriWeekdayLabel(currentRealDate);
+      weekdaySpan.textContent = currentRealDate
+        ? Controller.get_hijri_weekday_label(currentRealDate)
+        : '—';
     }
   }
 
@@ -1148,18 +761,14 @@
   }
 
   function getStudentAgeLabel(stu) {
-    if (!stu.hijri_birth_year) {
-      return 'العمر: غير محدد';
-    }
+    if (!stu.hijri_birth_year) return 'العمر: غير محدد';
     const birthYear = parseInt(stu.hijri_birth_year, 10);
-    if (!birthYear) {
-      return 'العمر: غير محدد';
-    }
-    const nowHijri = getCurrentHijriDate();
-    const age = nowHijri.year - birthYear;
-    if (age < 0 || age > 80) {
-      return 'العمر: غير محدد';
-    }
+    if (!birthYear) return 'العمر: غير محدد';
+    const nowStr = Controller.get_current_local_hijri_date();
+    const parts = nowStr.split('/');
+    const nowYear = parseInt(parts[2], 10) || 1447;
+    const age = nowYear - birthYear;
+    if (age < 0 || age > 80) return 'العمر: غير محدد';
     return `العمر: ${age} سنة`;
   }
 
@@ -1168,12 +777,10 @@
     const teachersContainer = document.getElementById('settings-teachers-list');
     if (!studentsContainer || !teachersContainer) return;
 
-    const archivedStudents = new Set(
-      safeJSONParse(localStorage.getItem(LS_KEYS.archivedStudents), []) || []
-    );
-    const archivedTeachers = new Set(
-      safeJSONParse(localStorage.getItem(LS_KEYS.archivedTeachers), []) || []
-    );
+    const archivedStudents = new Set(Controller.get_archived_students().map((id) => String(id)));
+    const archivedTeachers = new Set(Controller.get_archived_teachers().map((id) => String(id)));
+    const students = Controller.get_students();
+    const teachers = Controller.get_teachers();
 
     studentsContainer.innerHTML = '';
     teachersContainer.innerHTML = '';
@@ -1240,12 +847,13 @@
   function renderStudentStats() {
     if (!studentsStatsListEl) return;
     studentsStatsListEl.innerHTML = '';
+    const students = Controller.get_students();
     if (!students.length) return;
 
     const teacherId = getSelectedTeacherId();
-
-    // Build map of latest entries per (student, teacher, date) from stored progress and pending
+    const allProgressRows = Controller.get_daily_progress_rows();
     const byKey = new Map();
+
     allProgressRows.forEach((r) => {
       const sid = parseInt(r.student_id || '0', 10);
       const tid = parseInt(r.teacher_id || '0', 10);
@@ -1260,7 +868,7 @@
       });
     });
 
-    getPendingEntries().forEach((p) => {
+    Controller.get_pending_entries().forEach((p) => {
       const sid = parseInt(p.student_id || '0', 10);
       const tid = parseInt(p.teacher_id || '0', 10);
       if (!sid || !tid) return;
@@ -1355,12 +963,16 @@
   }
 
   function bootstrap() {
-    initConnectionStatus();
+    setConnectionStatus(Controller.is_online());
+    window.addEventListener('online', () => {
+      setConnectionStatus(true);
+      backgroundSyncIfPossible();
+    });
+    window.addEventListener('offline', () => setConnectionStatus(false));
+
     initConfigUI();
     ensureHijriInputsDefault();
-    savePendingEntries(getPendingEntries());
 
-    // Set header hijri date text
     try {
       const hijriHeaderFormatter = new Intl.DateTimeFormat('ar-SA-u-ca-islamic', {
         day: 'numeric',
@@ -1374,8 +986,7 @@
     }
     updateHijriLabels();
 
-    const cfg = getConfig();
-    if (cfg.token) {
+    if (Controller.is_authenticated()) {
       switchToAppView();
       loadStudentsAndTeachers();
     } else {
